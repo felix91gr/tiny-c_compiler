@@ -59,8 +59,6 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 		// println!("Parser accepted it... Time to generate AST...");
 	
 		fn parse_term(pair: Pair<Rule>) -> Term {
-			// println!("Term Pair: {:?}", pair.as_str());
-
 			match pair.as_rule() {
 				Rule::id => Term::Id(pair.as_str().chars().next().unwrap()),
 
@@ -83,8 +81,6 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 		}
 
 		fn parse_sum(pair: Pair<Rule>) -> Sum {
-			// println!("Parsing Sum: {:?}", pair.as_str());
-			
 			match pair.as_rule() {
 				Rule::term => {
 					let term = parse_term(pair.into_inner().next().unwrap());
@@ -124,6 +120,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
     fn parse_expression(pair: Pair<Rule>) -> Expression {
     	match pair.as_rule() {
+    		
     		Rule::assignment => {
 	    			let mut inner_pair = pair.into_inner();
 
@@ -171,21 +168,22 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
     }
 
     fn parse_statement(pair: Pair<Rule>) -> TCStatement {
-    	let inner_pair = pair.into_inner().next().unwrap();
+    	match pair.as_rule() {
 
-    	match inner_pair.as_rule() {
+    		Rule::statement => parse_statement(pair.into_inner().next().unwrap()),
+
     		Rule::semicolon_statement => TCStatement::Empty,
       	
       	Rule::expr_statement => {
 
-      		let expr = parse_expression(inner_pair.into_inner().next().unwrap());
+      		let expr = parse_expression(pair.into_inner().next().unwrap());
 
       		TCStatement::Expr(expr)
       	},
 
       	Rule::scoped_statement => {
 
-      		let inner_statements = inner_pair.into_inner()
+      		let inner_statements = pair.into_inner()
       			.map(parse_statement).collect();
 
       		TCStatement::Scope(inner_statements)
@@ -193,7 +191,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 				
 				Rule::do_while => {
 
-					let mut inner_pieces = inner_pair.into_inner();
+					let mut inner_pieces = pair.into_inner();
 
 					let stmt = parse_statement(inner_pieces.next().unwrap());
 
@@ -204,7 +202,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
 				Rule::_while => {
 
-					let mut inner_pieces = inner_pair.into_inner();
+					let mut inner_pieces = pair.into_inner();
 
 					let expr = parse_expression(inner_pieces.next().unwrap());
 
@@ -215,7 +213,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
 				Rule::if_else => {
 
-					let mut inner_pieces = inner_pair.into_inner();
+					let mut inner_pieces = pair.into_inner();
 
 					let expr = parse_expression(inner_pieces.next().unwrap());
 
@@ -228,7 +226,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
 				Rule::_if => {
 
-					let mut inner_pieces = inner_pair.into_inner();
+					let mut inner_pieces = pair.into_inner();
 
 					let expr = parse_expression(inner_pieces.next().unwrap());
 
