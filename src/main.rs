@@ -21,14 +21,15 @@ enum Sum {
 enum Expression {
 	Assignment(char, Box<Expression>),
 	Comparison(Sum, Sum),
-	Value(Sum)
+	Value(Sum),
+	Parenthesis(Box<Expression>),
 }
 
 #[derive(Debug)]
 enum TCStatement {
 	Empty,
 	Expr(Expression),
-	Scope(Box<TCStatement>),
+	Scope(Vec<TCStatement>),
 	DoWhile(Box<TCStatement>, Expression),
 	While(Expression, Box<TCStatement>),
 	IfElse(Expression, Box<TCStatement>, Box<TCStatement>),
@@ -139,7 +140,12 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 	    			Expression::Assignment(id, Box::new(expression))    			
     			},
     		
-    		Rule::paren_expr => parse_expression(pair.into_inner().next().unwrap()),
+    		Rule::paren_expr => {
+
+    			let inner_expression = parse_expression(pair.into_inner().next().unwrap());
+
+    			Expression::Parenthesis(Box::new(inner_expression))
+    		},
 
     		Rule::comparison => {
     			
@@ -175,14 +181,14 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
       		let expr = parse_expression(inner_pair.into_inner().next().unwrap());
 
       		TCStatement::Expr(expr)
-
       	},
 
       	Rule::scoped_statement => {
 
-      		let stmt = parse_statement(inner_pair.into_inner().next().unwrap());
-      	
-      		TCStatement::Scope(Box::new(stmt))
+      		let inner_statements = inner_pair.into_inner()
+      			.map(parse_statement).collect();
+
+      		TCStatement::Scope(inner_statements)
       	},
 				
 				Rule::do_while => {
