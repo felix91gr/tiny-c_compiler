@@ -1,0 +1,49 @@
+// Global settings
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+// Positive integers
+int = @{ "0" | ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
+
+// Lower letters are the only variables, and they are global.
+id = { ASCII_ALPHA_LOWER }
+
+// Expressions are always terms, as in C: "a = 5" has the value "5"
+term = { paren_expr | id | int }
+
+// Everything is a number here, therefore terms are already sums
+summation = { term ~ "+" ~ sum }
+substraction = { term ~ "-" ~ sum }
+sum = { summation | substraction | term }
+
+// True if "sum" is different from 0, or if $1 < $2
+comparison = { sum ~ "<" ~ sum }
+
+// An expression
+assignment = { id ~ "=" ~ expr }
+expr = { assignment | comparison | sum }
+
+// An expression surrounded by parenthesis
+paren_expr = { "(" ~ expr ~ ")"}
+
+// All the different Statements
+if_else = { "if" ~ paren_expr ~ statement ~ "else" ~ statement }
+_if = { "if" ~ paren_expr ~ statement }
+do_while = { "do" ~ statement ~ "while" ~ paren_expr ~ ";" }
+_while = { "while" ~ paren_expr ~ statement }
+scoped_statement = { "{" ~ statement+ ~ "}" }
+expr_statement = { expr ~ ";" }
+semicolon_statement = { ";" }
+
+//
+statement = { 
+	if_else 
+	| _if 
+	| do_while 
+	| _while 
+	| scoped_statement 
+	| expr_statement
+	| semicolon_statement
+} 
+
+// The language
+tiny_c = _{ SOI ~ statement ~ EOI }
