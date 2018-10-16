@@ -1,4 +1,4 @@
-# tiny-c_compiler
+# Tiny-C Compiler
 A compiler of the Tiny C language, and of future expansions to it
 
 ## How to run it
