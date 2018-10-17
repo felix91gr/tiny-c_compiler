@@ -13,16 +13,11 @@ Both for ease of use, and because I might end up using the nightly toolchain (th
 
 ### Running the project
 
-On the project's root directory, run this:
-
-`cargo run`
-
-That's it!
+Now that I've implemented the unit tests, the `main` function does nothing. In the future, it will input `stdin` to the parser. For the moment, please run the tests instead.
 
 ### Running the tests
 
-This is not yet done, but I intend to use testing because it makes for a working compiler. At some point in the future, run:
+To run the unit tests:
 
 `cargo test`
 
-And that should run my (not yet made) test suite.
