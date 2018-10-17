@@ -1,5 +1,4 @@
 
-#![feature(rust_2018_preview)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
