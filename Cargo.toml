@@ -1,7 +1,10 @@
+cargo-features = ["edition"]
+
 [package]
 name = "tiny-c-parser"
 version = "0.1.0"
 authors = ["Félix Fischer <felix91gr@gmail.com>"]
+edition = "2018"
 
 [dependencies]
 pest = "2.0"

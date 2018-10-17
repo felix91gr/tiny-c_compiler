@@ -1,4 +1,5 @@
 
+#![feature(rust_2018_preview)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
@@ -120,7 +121,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
     fn parse_expression(pair: Pair<Rule>) -> Expression {
     	match pair.as_rule() {
-    		
+
     		Rule::assignment => {
 	    			let mut inner_pair = pair.into_inner();
 
