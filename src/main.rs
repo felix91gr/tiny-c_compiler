@@ -4,6 +4,27 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+//////////////////////////////////////
+//					Usage of Pest						//
+//////////////////////////////////////
+
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+
+use pest::Parser;
+
+#[derive(Parser)]
+#[grammar = "tiny-c.pest"]
+struct TinyCParser;
+
+use pest::error::Error;
+use pest::iterators::Pair;	
+
+//////////////////////////////////////
+//					AST Definitions					//
+//////////////////////////////////////
+
 #[derive(Debug)]
 enum Term {
 	Id(char),
@@ -37,28 +58,14 @@ enum TCStatement {
 	If(Expression, Box<TCStatement>),
 }
 
-extern crate pest;
-#[macro_use]
-extern crate pest_derive;
-
-use pest::Parser;
-
-#[derive(Parser)]
-#[grammar = "tiny-c.pest"]
-struct TinyCParser;
-
-use pest::error::Error;
-use pest::iterators::Pair;	
-
+//////////////////////////////////////
+//				AST Construction					//
+//////////////////////////////////////
 
 fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
-    
-		// println!("Feeding into Parser...");
 
     let tiny_c = TinyCParser::parse(Rule::tiny_c, file)?.next().unwrap();
 
-		// println!("Parser accepted it... Time to generate AST...");
-	
 		fn parse_term(pair: Pair<Rule>) -> Term {
 			match pair.as_rule() {
 				Rule::id => Term::Id(pair.as_str().chars().next().unwrap()),
@@ -245,8 +252,6 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
 
 fn main() {
-	// let unparsed_file = fs::read_to_string("program.tc").expect("cannot read file");
-	// let unparsed_file = "{a;}";
 
 	let unparsed_files = vec![
 		"{i;}", 
@@ -269,7 +274,138 @@ fn main() {
 	  println!("{:?}", tiny_c);
 	}
 
-	// println!("{}", serialize_jsonvalue(&json));
 }
 
+//////////////////////////////////////
+//						Unit Tests 						//
+//////////////////////////////////////
 
+#[cfg(test)]
+mod tests {
+
+	mod it_accepts {
+
+		use super::super::*;
+
+		#[test]
+		fn empty_statement() {
+			parse_tc_file(";").unwrap();
+		}
+
+		mod basic {
+			use super::super::super::*;
+
+			#[test]
+			fn _if() {
+				parse_tc_file("if (i) ;").unwrap();			
+			}
+
+			#[test]
+			fn if_else() {
+				parse_tc_file("if (i) ; else ;").unwrap();			
+			}
+
+			#[test]
+			fn do_while() {
+				parse_tc_file("do ; while (i) ;").unwrap();			
+			}
+
+			#[test]
+			fn _while() {
+				parse_tc_file("while (i) ;").unwrap();			
+			}
+
+			#[test]
+			fn scope() {
+				parse_tc_file("{;}").unwrap();			
+			}
+
+			#[test]
+			fn expression_statement() {
+				parse_tc_file("1 ;").unwrap();			
+			}
+		}
+
+		mod scopes {
+			use super::super::super::*;
+			
+			#[test]
+			fn while_inc_i_by_i() {
+				parse_tc_file("{ i=1; while (i<100) i=i+i; }").unwrap();
+			}
+
+			#[test]
+			fn while_and_if() {
+				parse_tc_file("{ i=125; j=100; while (i-j) if (i<j) j=j-i; else i=i-j; }").unwrap();
+			}
+
+			#[test]
+			fn do_while_inc_i_by_ten() {
+				parse_tc_file("{ i=1; do i=i+10; while (i<50); }").unwrap();
+			}
+
+			#[test]
+			fn while_for_sleeping_a_couple_times() {
+				parse_tc_file("{ i=1; while ((i=i+10)<50) ; }").unwrap();
+			}
+
+			#[test]
+			fn if_followed_by_if() {
+				parse_tc_file("{ i=7; if (i<5) x=1; if (i<10) y=2; }").unwrap();
+			}
+		}
+
+	}
+
+	mod it_rejects {
+
+		use super::super::*;
+
+		#[test]
+		#[should_panic]
+		fn empty_file() {
+			parse_tc_file("").unwrap();			
+		}
+
+		#[test]
+		#[should_panic]
+		fn empty_if() {
+			parse_tc_file("if () ;").unwrap();			
+		}
+
+		#[test]
+		#[should_panic]
+		fn empty_if_else() {
+			parse_tc_file("if () ; else ;").unwrap();			
+		}
+
+		#[test]
+		#[should_panic]
+		fn empty_do_while() {
+			parse_tc_file("do ; while () ;").unwrap();			
+		}
+
+		#[test]
+		#[should_panic]
+		fn empty_while() {
+			parse_tc_file("while () ;").unwrap();			
+		}
+
+		#[test]
+		#[should_panic]
+		fn lone_expression() {
+			parse_tc_file("1").unwrap();			
+		}
+	}
+
+
+	// TODO: should reject empty scopes?
+	// #[test]
+	// fn it_parses_empty_scope() {
+	// 	let unparsed_file = "{}";
+
+	// 	parse_tc_file(&unparsed_file).expect("unsuccessful parse");
+	// }
+
+
+}
