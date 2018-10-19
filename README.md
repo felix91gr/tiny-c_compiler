@@ -13,11 +13,29 @@ Both for ease of use, and because I might end up using the nightly toolchain (th
 
 ### Running the project
 
-Now that I've implemented the unit tests, the `main` function does nothing. In the future, it will input `stdin` to the parser. For the moment, please run the tests instead.
+First, build the project.
+
+```bash
+cargo build
+```
+
+Then, run it feeding it some code:
+
+```bash
+target/debug/tiny-c-parser -p code_samples/do_while_example.tc
+```
+
+You can also check the included usage help:
+
+```bash
+target/debug/tiny-c-parser --help
+```
 
 ### Running the tests
 
 To run the unit tests:
 
-`cargo test`
+```bash
+cargo test
+```
 

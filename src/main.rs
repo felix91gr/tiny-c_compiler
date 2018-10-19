@@ -294,7 +294,7 @@ fn main() {
       let parse_result = parse_tc_file(&unparsed_file);
 
       match parse_result {
-      	Ok(ast) => println!("AST: {:?}", ast),
+      	Ok(ast) => println!("AST: \n   {:?}", ast),
       	_ => println!("Could not parse file"),
       }
 		}
