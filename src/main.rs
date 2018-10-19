@@ -255,9 +255,9 @@ fn main() {
 //////////////////////////////////////
 
 #[cfg(test)]
-mod tests {
+mod that_parser {
 
-  mod it_accepts {
+  mod accepts {
 
     use super::super::*;
 
@@ -331,7 +331,7 @@ mod tests {
 
   }
 
-  mod it_rejects {
+  mod rejects {
 
     use super::super::*;
 
@@ -370,12 +370,35 @@ mod tests {
     fn lone_expression() {
       parse_tc_file("1").unwrap();      
     }
+
+    #[test]
+    #[should_panic]
+    fn statement_inside_expression() {
+      parse_tc_file("(;);").unwrap();      
+    }
+
+    mod badly_formed {
+    	
+			use super::super::super::*;
+
+	    #[test]
+	    #[should_panic]
+	    fn scope() {
+	      parse_tc_file("{;").unwrap();      
+	    }
+
+	    #[test]
+	    #[should_panic]
+	    fn parenthesis() {
+	      parse_tc_file("(;").unwrap();      
+	    }
+    }	
   }
 
 
   // TODO: should reject empty scopes?
   // #[test]
-  // fn it_parses_empty_scope() {
+  // fn parses_empty_scope() {
   //   let unparsed_file = "{}";
 
   //   parse_tc_file(&unparsed_file).expect("unsuccessful parse");
