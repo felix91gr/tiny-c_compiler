@@ -185,6 +185,9 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
     }
 
     fn parse_statement(pair: Pair<Rule>) -> TCStatement {
+
+    	println!("Tokens of this statement: {:?}\n\n", &(pair.clone().tokens()));
+
       match pair.as_rule() {
 
         Rule::statement => parse_statement(pair.into_inner().next().unwrap()),
@@ -295,7 +298,7 @@ fn main() {
 
       match parse_result {
       	Ok(ast) => println!("AST: \n   {:?}", ast),
-      	_ => println!("Could not parse file"),
+      	Err(e) => println!("Could not parse file: \n   {:?}", e),
       }
 		}
 	}
