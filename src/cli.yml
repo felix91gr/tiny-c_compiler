@@ -1,0 +1,16 @@
+name: Tiny-C Compiler
+version: "0.1"
+author: Félix F. <felix91gr@gmail.com>
+about: Compiles the Tiny C language
+args:
+    - INPUT:
+        help: Sets the input file to compile
+        required: true
+        index: 1
+    - verbose:
+        short: v
+        multiple: true
+        help: Sets the level of verbosity
+    - parse-only:  
+        short: p
+        help: Only parse the input file and output the AST

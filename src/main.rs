@@ -54,6 +54,20 @@ enum TCStatement {
 }
 
 //////////////////////////////////////
+//          AST Displaying          //
+//////////////////////////////////////
+
+// impl fmt::Display for TCStatement {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//     	match &self {
+//     		Empty => "Empty",
+//     		Expr(expression) => "Expression:",
+//     	}
+//         write!(f, "({}, {})", self.x, self.y)
+//     }
+// }
+
+//////////////////////////////////////
 //        AST Construction          //
 //////////////////////////////////////
 
@@ -245,9 +259,35 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
     Ok(parse_statement(tiny_c))
 }
 
+//////////////////////////////////////
+//        The Program Itself        //
+//////////////////////////////////////
+
+#[macro_use]
+extern crate clap;
+use clap::App;
 
 fn main() {
 
+	let yaml = load_yaml!("cli.yml");
+  let matches = App::from_yaml(yaml).get_matches();	
+
+  println!("Running the Tiny-C Compiler...");
+
+  match matches.occurrences_of("verbose") {
+    0 => println!("Verbose mode is off"),
+    1 => println!("Verbose mode is kind of on"),
+    2 => println!("Verbose mode is on"),
+    3 | _ => println!("Don't be crazy"),
+	}
+
+	if matches.is_present("parse-only") {
+		println!("Running in Parser mode");
+
+    if let Some(o) = matches.value_of("INPUT") {
+      println!("Reading from input file: {}", o);
+		}
+	}
 }
 
 //////////////////////////////////////
@@ -403,6 +443,5 @@ mod that_parser {
 
   //   parse_tc_file(&unparsed_file).expect("unsuccessful parse");
   // }
-
 
 }

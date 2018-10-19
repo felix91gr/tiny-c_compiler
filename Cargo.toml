@@ -3,6 +3,12 @@
 name = "tiny-c-parser"
 version = "0.1.0"
 authors = ["Félix Fischer <felix91gr@gmail.com>"]
+
 [dependencies]
+
+# For the construction of the parser
 pest = "2.0"
 pest_derive = "2.0"
+
+# For command line argument parsing
+clap = {version = "2.32", features = ["yaml"]}
