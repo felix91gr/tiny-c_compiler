@@ -20,37 +20,117 @@ use pest::iterators::Pair;
 //          AST Definitions         //
 //////////////////////////////////////
 
+type Span = (usize, usize);
+
+
+
+///////////////
+// Term Node //
+///////////////
+
 #[derive(Debug)]
-enum Term {
+struct Term {
+  span : Span,
+  inner : InnerTerm,
+}
+
+#[derive(Debug)]
+enum InnerTerm {
   Id(char),
   Int(u32),
   Expr(Box<Expression>)
 }
 
+impl Term {
+  fn new(span: Span, inner: InnerTerm) -> Term {
+    Term {
+      span,
+      inner
+    }
+  }
+}
+
+//////////////
+// Sum Node //
+//////////////
+
 #[derive(Debug)]
-enum Sum {
+struct Sum {
+  span : Span,
+  inner : InnerSum,
+}
+
+#[derive(Debug)]
+enum InnerSum {
   Tm(Term),
   Summation(Term, Box<Sum>),
   Substraction(Term, Box<Sum>)
 }
 
+impl Sum {
+  fn new(span: Span, inner: InnerSum) -> Sum {
+    Sum {
+      span,
+      inner
+    }
+  }
+}
+
+///////////////
+// Expr Node //
+///////////////
+
 #[derive(Debug)]
-enum Expression {
+struct Expression {
+  span : Span,
+  inner : InnerExpression,
+}
+
+#[derive(Debug)]
+enum InnerExpression {
   Assignment(char, Box<Expression>),
   Comparison(Sum, Sum),
   Value(Sum),
   Parenthesis(Box<Expression>),
 }
 
+impl Expression {
+  fn new(span: Span, inner: InnerExpression) -> Expression {
+    Expression {
+      span,
+      inner
+    }
+  }
+}
+
+///////////////
+// Stmt Node //
+///////////////
+
 #[derive(Debug)]
-enum TCStatement {
+struct Statement {
+  span : Span,
+  inner : InnerStatement,
+}
+
+#[derive(Debug)]
+enum InnerStatement {
   Empty,
   Expr(Expression),
-  Scope(Vec<TCStatement>),
-  DoWhile(Box<TCStatement>, Expression),
-  While(Expression, Box<TCStatement>),
-  IfElse(Expression, Box<TCStatement>, Box<TCStatement>),
-  If(Expression, Box<TCStatement>),
+  Scope(Vec<Statement>),
+  DoWhile(Box<Statement>, Expression),
+  While(Expression, Box<Statement>),
+  IfElse(Expression, Box<Statement>, Box<Statement>),
+  If(Expression, Box<Statement>),
+}
+
+impl Statement {
+  fn new(span: Span, inner: InnerStatement) -> Statement {
+    Statement {
+      span,
+      inner
+    }
+  }
 }
 
 //////////////////////////////////////
@@ -71,38 +151,53 @@ enum TCStatement {
 //        AST Construction          //
 //////////////////////////////////////
 
-fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
+fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 
     let tiny_c = TinyCParser::parse(Rule::tiny_c, file)?.next().unwrap();
 
     fn parse_term(pair: Pair<Rule>) -> Term {
-      match pair.as_rule() {
-        Rule::id => Term::Id(pair.as_str().chars().next().unwrap()),
+      
+      let span = pair.as_span();
 
-        Rule::int => Term::Int(pair.as_str().parse().unwrap()),
+      let start = span.start();
+      let end = span.end();
+
+      let inner = match pair.as_rule() {
+        Rule::id => InnerTerm::Id(pair.as_str().chars().next().unwrap()),
+
+        Rule::int => InnerTerm::Int(pair.as_str().parse().unwrap()),
 
         Rule::paren_expr => {
 
           let expr = parse_expression(pair.into_inner().next().unwrap());
 
-          Term::Expr(Box::new(expr))
+          InnerTerm::Expr(Box::new(expr))
         },
 
-        Rule::term => parse_term(pair.into_inner().next().unwrap()),
+        // In case I messed up the parsing, I do a new recursion step and ignore it
+        Rule::term => parse_term(pair.into_inner().next().unwrap()).inner,
 
         _ => {
           println!("Pair: {:?}", pair);
           unreachable!()
         },
-      }
+      };
+
+      Term::new((start, end), inner)
     }
 
     fn parse_sum(pair: Pair<Rule>) -> Sum {
-      match pair.as_rule() {
+      
+      let span = pair.as_span();
+
+      let start = span.start();
+      let end = span.end();
+      
+      let inner = match pair.as_rule() {
         Rule::term => {
           let term = parse_term(pair.into_inner().next().unwrap());
 
-          Sum::Tm(term)
+          InnerSum::Tm(term)
         },
 
         Rule::summation => {
@@ -113,7 +208,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let sum = parse_sum(inner_pieces.next().unwrap());
 
-          Sum::Summation(term, Box::new(sum))
+          InnerSum::Summation(term, Box::new(sum))
         },
 
         Rule::substraction => {
@@ -124,19 +219,28 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let sum = parse_sum(inner_pieces.next().unwrap());
 
-          Sum::Substraction(term, Box::new(sum))
+          InnerSum::Substraction(term, Box::new(sum))
         }
 
-        Rule::sum => parse_sum(pair.into_inner().next().unwrap()),
+        // In case I messed up the parsing, I do a new recursion step and ignore it
+        Rule::sum => parse_sum(pair.into_inner().next().unwrap()).inner,
 
         _ => {
           unreachable!()
         }
-      }
+      };
+
+      Sum::new((start, end), inner)
     }
 
     fn parse_expression(pair: Pair<Rule>) -> Expression {
-      match pair.as_rule() {
+            
+      let span = pair.as_span();
+
+      let start = span.start();
+      let end = span.end();
+
+      let inner = match pair.as_rule() {
 
         Rule::assignment => {
             let mut inner_pair = pair.into_inner();
@@ -151,14 +255,14 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
             let expression = parse_expression(inner_pair.next().unwrap());
 
-            Expression::Assignment(id, Box::new(expression))          
+            InnerExpression::Assignment(id, Box::new(expression))          
           },
         
         Rule::paren_expr => {
 
           let inner_expression = parse_expression(pair.into_inner().next().unwrap());
 
-          Expression::Parenthesis(Box::new(inner_expression))
+          InnerExpression::Parenthesis(Box::new(inner_expression))
         },
 
         Rule::comparison => {
@@ -169,36 +273,43 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let second_sum = parse_sum(inner_pieces.next().unwrap());
 
-          Expression::Comparison(first_sum, second_sum)
+          InnerExpression::Comparison(first_sum, second_sum)
         },
 
-        Rule::sum => Expression::Value(parse_sum(pair.into_inner().next().unwrap())),
+        Rule::sum => InnerExpression::Value(parse_sum(pair.into_inner().next().unwrap())),
 
-        Rule::expr => parse_expression(pair.into_inner().next().unwrap()),
+        // In case I messed up the parsing, I do a new recursion step and ignore it
+        Rule::expr => parse_expression(pair.into_inner().next().unwrap()).inner,
 
         _ => {
           println!("{:?}", pair);
           println!("{:?}", pair.as_rule());
           unreachable!()
         },
-      }
+      };
+
+      Expression::new((start, end), inner)
     }
 
-    fn parse_statement(pair: Pair<Rule>) -> TCStatement {
+    fn parse_statement(pair: Pair<Rule>) -> Statement {
+            
+      let span = pair.as_span();
 
-    	println!("Tokens of this statement: {:?}\n\n", &(pair.clone().tokens()));
+      let start = span.start();
+      let end = span.end();
 
-      match pair.as_rule() {
+      let inner = match pair.as_rule() {
 
-        Rule::statement => parse_statement(pair.into_inner().next().unwrap()),
+        // In case I messed up the parsing, I do a new recursion step and ignore it
+        Rule::statement => parse_statement(pair.into_inner().next().unwrap()).inner,
 
-        Rule::semicolon_statement => TCStatement::Empty,
+        Rule::semicolon_statement => InnerStatement::Empty,
         
         Rule::expr_statement => {
 
           let expr = parse_expression(pair.into_inner().next().unwrap());
 
-          TCStatement::Expr(expr)
+          InnerStatement::Expr(expr)
         },
 
         Rule::scoped_statement => {
@@ -206,7 +317,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
           let inner_statements = pair.into_inner()
             .map(parse_statement).collect();
 
-          TCStatement::Scope(inner_statements)
+          InnerStatement::Scope(inner_statements)
         },
         
         Rule::do_while => {
@@ -217,7 +328,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let expr = parse_expression(inner_pieces.next().unwrap());
 
-          TCStatement::DoWhile(Box::new(stmt), expr)
+          InnerStatement::DoWhile(Box::new(stmt), expr)
         },
 
         Rule::_while => {
@@ -228,7 +339,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let stmt = parse_statement(inner_pieces.next().unwrap());
 
-          TCStatement::While(expr, Box::new(stmt))
+          InnerStatement::While(expr, Box::new(stmt))
         },
 
         Rule::if_else => {
@@ -241,7 +352,7 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
           
           let second_stmt = parse_statement(inner_pieces.next().unwrap());
 
-          TCStatement::IfElse(expr, Box::new(first_stmt), Box::new(second_stmt))
+          InnerStatement::IfElse(expr, Box::new(first_stmt), Box::new(second_stmt))
         },
 
         Rule::_if => {
@@ -252,11 +363,13 @@ fn parse_tc_file(file: &str) -> Result<TCStatement, Error<Rule>> {
 
           let stmt = parse_statement(inner_pieces.next().unwrap());
 
-          TCStatement::If(expr, Box::new(stmt))
+          InnerStatement::If(expr, Box::new(stmt))
         }
 
         _ => unreachable!(),
-      }
+      };
+
+      Statement::new((start, end), inner)
     }
 
     Ok(parse_statement(tiny_c))

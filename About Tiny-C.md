@@ -168,7 +168,7 @@ Entonces el parser terminaría antes de parsear todo el archivo en casos como:
 
 `i = 5`
 
-Pues antes de encontrar el resultado de `assignment`, encontraría `i`. Y al no poder expandir más el match ni retroceder, falla el parseo.
+Pues antes de encontrar el resultado de `assignment`, encontraría `sum -> term -> i`. Y al no poder expandir más el match ni retroceder, falla el parseo.
 
 Algo similar pasa al invertir el orden de `if` y `if_else` o de `while` y `do_while`:
 
