@@ -22,8 +22,6 @@ use pest::iterators::Pair;
 
 type Span = (usize, usize);
 
-
-
 ///////////////
 // Term Node //
 ///////////////
@@ -137,14 +135,14 @@ impl Statement {
 //          AST Displaying          //
 //////////////////////////////////////
 
-// impl fmt::Display for TCStatement {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//     	match &self {
-//     		Empty => "Empty",
-//     		Expr(expression) => "Expression:",
-//     	}
-//         write!(f, "({}, {})", self.x, self.y)
+// impl fmt:Display for Statement {
+//   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//     match &self {
+//       Empty => "Empty",
+//       Expr(expression) => "Expression:",
 //     }
+//     write!(f, "({}, {})", self.x, self.y)
+//   }
 // }
 
 //////////////////////////////////////

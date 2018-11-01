@@ -1,6 +1,11 @@
 // Global settings
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
+multi_line_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+single_line_comment = @{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+
+COMMENT = _{ multi_line_comment | single_line_comment }
+
 // Positive integers
 int = @{ "0" | ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
 
@@ -20,10 +25,19 @@ comparison = { sum ~ "<" ~ sum }
 
 // An expression
 assignment = { id ~ "=" ~ expr }
-expr = { assignment | comparison | sum }
+expr = !{ assignment | comparison | sum }
 
 // An expression surrounded by parenthesis
 paren_expr = { "(" ~ expr ~ ")"}
+
+////////////////////////
+//       Prints       //
+////////////////////////
+string = @{ (!(NEWLINE | "\"") ~ ANY)* }
+
+printable = ${ ("\"" ~ string ~ "\"") | expr }
+
+print_statement = { "print" ~ "(" ~ printable ~ ")" ~ ";" }
 
 // All the different Statements
 if_else = { "if" ~ paren_expr ~ statement ~ "else" ~ statement }
@@ -43,6 +57,7 @@ statement = {
 	| scoped_statement 
 	| expr_statement
 	| semicolon_statement
+	| print_statement
 } 
 
 // The language
