@@ -524,13 +524,47 @@ mod that_parser {
       }
 
       #[test]
+      fn line_comments() {
+        let file = r#"
+          {
+            // This is a comment above a statement
+            a = 1;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();      
+      }
+
+      #[test]
+      fn multiline_comments() {
+        let file = r#"
+          {
+            /*
+              Multiline 
+              comments 
+              ftw!
+            */
+            a = 2;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();      
+      }
+
+      #[test]
       fn expression_statement() {
         parse_tc_file("1 ;").unwrap();      
       }
 
       #[test]
       fn printing_of_strings() {
-        parse_tc_file("print (\"Hello\") ;").unwrap();      
+        let file = r#"
+          {
+            print("Hello");
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();      
       }
 
       #[test]
@@ -544,32 +578,89 @@ mod that_parser {
       
       #[test]
       fn while_inc_i_by_i() {
-        parse_tc_file("{ i=1; while (i<100) i=i+i; }").unwrap();
+        let file = r#"
+          {
+            i = 1; 
+            while (i < 100) 
+              i = i + i;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
 
       #[test]
       fn while_and_if() {
-        parse_tc_file("{ i=125; j=100; while (i-j) if (i<j) j=j-i; else i=i-j; }").unwrap();
+        let file = r#"
+          {
+            i = 125; 
+            j = 100; 
+
+            while (i - j) 
+              if (i < j) 
+                j = j - i; 
+              else 
+                i = i - j;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
 
       #[test]
       fn do_while_inc_i_by_ten() {
-        parse_tc_file("{ i=1; do i=i+10; while (i<50); }").unwrap();
+        let file = r#"
+          {
+            i = 1; 
+            do i = i + 10; 
+            while ( i < 50 ); 
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
 
       #[test]
       fn while_for_sleeping_a_couple_times() {
-        parse_tc_file("{ i=1; while ((i=i+10)<50) ; }").unwrap();
+        let file = r#"
+          {
+            i = 1; 
+            while ((i = i + 10) < 50) ;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
 
       #[test]
       fn if_followed_by_if() {
-        parse_tc_file("{ i=7; if (i<5) x=1; if (i<10) y=2; }").unwrap();
+        let file = r#"
+          {
+            i = 7;
+            if (i < 5)
+              x = 1;
+
+            if (i < 10)
+              y = 2;
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
 
       #[test]
       fn print_ten_times_hello() {
-        parse_tc_file("{ i=0; do { i=i+1; print(\"Hello!\"); } while (i<10); }").unwrap();
+        let file = r#"
+          {
+            i = 0;
+            do {
+              i = i + 1;
+              print("Hello!");
+            } while (i < 10);
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
     }
 
@@ -653,7 +744,7 @@ mod that_parser {
       fn print() {
         parse_tc_file("plint (\"Hello\") ;").unwrap();      
       }
-      
+
     }	
   }
 
