@@ -23,6 +23,27 @@ use pest::iterators::Pair;
 type Span = (usize, usize);
 
 ///////////////
+//  Id Node  //
+///////////////
+
+#[derive(Debug)]
+struct Identifier {
+  span : Span,
+  inner : char,
+}
+
+impl Identifier {
+  fn new(span: Span, inner: char) -> Identifier {
+    Identifier {
+      span,
+      inner
+    }
+  }
+}
+
+
+
+///////////////
 // Term Node //
 ///////////////
 
@@ -34,7 +55,7 @@ struct Term {
 
 #[derive(Debug)]
 enum InnerTerm {
-  Id(char),
+  Id(Identifier),
   Int(u32),
   Expr(Box<Expression>)
 }
@@ -146,6 +167,8 @@ enum InnerStatement {
   IfElse(Expression, Box<Statement>, Box<Statement>),
   If(Expression, Box<Statement>),
   PrintStatement(Printable),
+  FnDeclarationStatement(String, Vec<Identifier>, Box<Statement>),
+  FnUsageStatement(String, Vec<Expression>),
 }
 
 impl Statement {
@@ -179,6 +202,23 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 
     let tiny_c = TinyCParser::parse(Rule::tiny_c, file)?.next().unwrap();
 
+    fn parse_identifier(pair: Pair<Rule>) -> Identifier {
+
+      let span = pair.as_span();
+
+      let start = span.start();
+      let end = span.end();
+
+      let inner = match pair.as_rule() {
+
+        Rule::id => pair.as_str().chars().next().unwrap(),
+
+        _ => unreachable!()
+      };
+
+      Identifier::new((start, end), inner)
+    }
+
     fn parse_term(pair: Pair<Rule>) -> Term {
       
       let span = pair.as_span();
@@ -187,7 +227,7 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
       let end = span.end();
 
       let inner = match pair.as_rule() {
-        Rule::id => InnerTerm::Id(pair.as_str().chars().next().unwrap()),
+        Rule::id => InnerTerm::Id(parse_identifier(pair)),
 
         Rule::int => InnerTerm::Int(pair.as_str().parse().unwrap()),
 
@@ -426,7 +466,31 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
           let ptbl = parse_printable(inner_pieces.next().unwrap());
 
           InnerStatement::PrintStatement(ptbl)
-        }
+        },
+
+        Rule::function_declaration_statement => {
+
+          let mut inner_pieces = pair.into_inner();
+
+          let name = inner_pieces.next().unwrap().as_str().to_string();
+
+          let param_list : Vec<Identifier> = inner_pieces.next().unwrap().into_inner().map(parse_identifier).collect();
+
+          let body = Box::new(parse_statement(inner_pieces.next().unwrap()));
+
+          InnerStatement::FnDeclarationStatement(name, param_list, body)
+        },
+
+        Rule::function_usage_statement => {
+          
+          let mut inner_pieces = pair.into_inner();
+
+          let name = inner_pieces.next().unwrap().as_str().to_string();
+
+          let param_list : Vec<Expression> = inner_pieces.next().unwrap().into_inner().map(parse_expression).collect();
+
+          InnerStatement::FnUsageStatement(name, param_list)
+        },
 
         _ => unreachable!(),
       };
@@ -570,6 +634,30 @@ mod that_parser {
       #[test]
       fn printing_of_expressions() {
         parse_tc_file("print (a + 2) ;").unwrap();      
+      }
+
+      #[test]
+      fn function_declarations() {
+        let file = r#"
+          {
+            fn double(a) {
+              a = a + a;
+            }
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
+      }
+
+      #[test]
+      fn function_usage() {
+        let file = r#"
+          {
+            call double(a);
+          }
+        "#;
+
+        parse_tc_file(file).unwrap();
       }
     }
 
