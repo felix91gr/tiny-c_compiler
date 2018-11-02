@@ -102,6 +102,31 @@ impl Expression {
 }
 
 ///////////////
+// Ptbl Node //
+///////////////
+
+#[derive(Debug)]
+struct Printable {
+  span : Span,
+  inner : InnerPrintable,
+}
+
+#[derive(Debug)]
+enum InnerPrintable {
+  Str(String),
+  Expr(Expression),
+}
+
+impl Printable {
+  fn new(span: Span, inner: InnerPrintable) -> Printable {
+    Printable {
+      span,
+      inner
+    }
+  }
+}
+
+///////////////
 // Stmt Node //
 ///////////////
 
@@ -120,6 +145,7 @@ enum InnerStatement {
   While(Expression, Box<Statement>),
   IfElse(Expression, Box<Statement>, Box<Statement>),
   If(Expression, Box<Statement>),
+  PrintStatement(Printable),
 }
 
 impl Statement {
@@ -289,6 +315,35 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
       Expression::new((start, end), inner)
     }
 
+    fn parse_printable(pair: Pair<Rule>) -> Printable {
+                  
+      let span = pair.as_span();
+
+      let start = span.start();
+      let end = span.end();
+
+      let inner = match pair.as_rule() {
+
+        Rule::string => {
+          let string = pair.as_str();
+
+          InnerPrintable::Str(string.to_string())
+        },
+
+        Rule::expr => {
+          let expr = parse_expression(pair.into_inner().next().unwrap());
+
+          InnerPrintable::Expr(expr)
+        },
+
+        Rule::printable => parse_printable(pair.into_inner().next().unwrap()).inner,
+
+        _ => unreachable!(),
+      };
+
+      Printable::new((start, end), inner)
+    }
+
     fn parse_statement(pair: Pair<Rule>) -> Statement {
             
       let span = pair.as_span();
@@ -362,6 +417,15 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
           let stmt = parse_statement(inner_pieces.next().unwrap());
 
           InnerStatement::If(expr, Box::new(stmt))
+        },
+
+        Rule::print_statement => {
+
+          let mut inner_pieces = pair.into_inner();
+
+          let ptbl = parse_printable(inner_pieces.next().unwrap());
+
+          InnerStatement::PrintStatement(ptbl)
         }
 
         _ => unreachable!(),
@@ -463,6 +527,16 @@ mod that_parser {
       fn expression_statement() {
         parse_tc_file("1 ;").unwrap();      
       }
+
+      #[test]
+      fn printing_of_strings() {
+        parse_tc_file("print (\"Hello\") ;").unwrap();      
+      }
+
+      #[test]
+      fn printing_of_expressions() {
+        parse_tc_file("print (a + 2) ;").unwrap();      
+      }
     }
 
     mod scopes_like {
@@ -491,6 +565,11 @@ mod that_parser {
       #[test]
       fn if_followed_by_if() {
         parse_tc_file("{ i=7; if (i<5) x=1; if (i<10) y=2; }").unwrap();
+      }
+
+      #[test]
+      fn print_ten_times_hello() {
+        parse_tc_file("{ i=0; do { i=i+1; print(\"Hello!\"); } while (i<10); }").unwrap();
       }
     }
 
@@ -532,6 +611,12 @@ mod that_parser {
 
     #[test]
     #[should_panic]
+    fn empty_print() {
+      parse_tc_file("print () ;").unwrap();      
+    }
+
+    #[test]
+    #[should_panic]
     fn lone_expression() {
       parse_tc_file("1").unwrap();      
     }
@@ -557,6 +642,18 @@ mod that_parser {
 	    fn parenthesis() {
 	      parse_tc_file("(;").unwrap();      
 	    }
+    }
+
+    mod badly_spelled {
+      
+      use super::super::super::*;
+
+      #[test]
+      #[should_panic]
+      fn print() {
+        parse_tc_file("plint (\"Hello\") ;").unwrap();      
+      }
+      
     }	
   }
 
