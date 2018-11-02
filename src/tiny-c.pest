@@ -1,4 +1,14 @@
-// Global settings
+////////////////////////////////////////////////
+//              Global Settings               //
+////////////////////////////////////////////////
+
+//	Whitespace and comments are fitted between every "~"
+//	operation (unless the pattern is @ or $, and forcefully if 
+//	the pattern is !).
+
+//	That way, they can fill the gaps but can otherwise be ignored
+//	for when constructing the AST.
+
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 multi_line_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
@@ -6,49 +16,148 @@ single_line_comment = @{ "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
 COMMENT = _{ multi_line_comment | single_line_comment }
 
-// Positive integers
+////////////////////////////////////////////////
+//                   Terms                    //
+////////////////////////////////////////////////
+
+////// TODO: document the effects of allowing only unsigned integers
+////// in the language.
+
+//  Terms are the smallest concept in this grammar.
+//	A term can either be:
+//	 - An expression (nested between two parenthesis)
+//	 - An integer literal
+//	 - A variable's id
+
+//	Terms can be evaluated to have a value. In the 
+//	case of the "expression" kind of Term, their
+//	value is propagated to the left like this:
+//	 "a = 5" 				// Value is 5
+//	 "1 < 2" 				// Value is 1
+//	 "1 - (2 < 3)" 	// Value is 0
+
 int = @{ "0" | ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
 
-// Lower letters are the only variables, and they are global.
 id = { ASCII_ALPHA_LOWER }
 
-// Expressions are always terms, as in C: "a = 5" has the value "5"
 term = { paren_expr | id | int }
 
-// Everything is a number here, therefore terms are already sums
+////////////////////////////////////////////////
+//                Operations                  //
+////////////////////////////////////////////////
+
+//	Every term in Tiny-C is an integer, and operations 
+//	both recieve and deliver integers, accordingly.
+
+//	The effects of a summation and substraction are
+//	straightforward.
+
+//	A comparison returns 1 if true, and 0 if false.
+//	Accordingly, when using control flow primitives,
+//	1 will be true and 0 will be false.
+
+//// TODO: document what truth value have the x > 1
+
 summation = { term ~ "+" ~ sum }
 substraction = { term ~ "-" ~ sum }
 sum = { summation | substraction | term }
 
-// True if "sum" is different from 0, or if $1 < $2
 comparison = { sum ~ "<" ~ sum }
 
-// An expression
+////////////////////////////////////////////////
+//                Expressions                 //
+////////////////////////////////////////////////
+
+//	Expressions can either be assignments, comparisons
+//	or arithmetic operations. The key factor
+//	that differentiates an expression from a statement,
+//	is the fact that expressions can evaluated to a value.
+
+//	For better granularity, expressions can be nested in
+//	between parenthesis. This allows them to be treated
+//	as individualr terms, which in hand allows them
+//	to be part of operations and comparisons.
+
 assignment = { id ~ "=" ~ expr }
 expr = !{ assignment | comparison | sum }
 
 // An expression surrounded by parenthesis
 paren_expr = { "(" ~ expr ~ ")"}
 
-////////////////////////
-//       Prints       //
-////////////////////////
+////////////////////////////////////////////////
+//              Print Statements              //
+////////////////////////////////////////////////
+
+//	A program can print to Standard Output. There are
+//	two options here:
+//	- Printing a constant string, defined at compile time.
+//	- Printing an integer value, derived from evaluating
+//		an expression. 
+
 string = @{ (!(NEWLINE | "\"") ~ ANY)* }
 
 printable = ${ ("\"" ~ string ~ "\"") | expr }
 
 print_statement = { "print" ~ "(" ~ printable ~ ")" ~ ";" }
 
-////////////////////////
-//     Functions      //
-////////////////////////
+////////////////////////////////////////////////
+//                 Functions                  //
+////////////////////////////////////////////////
+
+//	##  Declaration  ##
+
+//	A program can define functions and call them.
+//	Functions have no return value. Instead, they
+//	write over the variables they are given as input.
+
+//	If a function were to be given values and not
+//	variables as input, its writing operations have
+//	no lasting effect.
+
+//	A function may not be given two of the same
+//	variable as input, for any writes to that variable
+//	would be contradictory.
+
+//	A function's scope has the same set of 26 valid
+//	variable identifiers, but they belong to the 
+//	function, and are both new and not global.
+//	This allows for easier separation of roles,
+//	without having global side-effects caused by 
+//	function calls.
+
+//	To define a function, you need its name and
+//	a list of parameters. The parameters are named
+//	as any of the 26 valid identifiers, and cannot 
+//	be repeated in the same declaration.
+
+//	In order to return a value, the function overwrites
+//	the value of some or all of the variables given
+//	to it, by assigning values to them while it is 
+//	running.
+
+//	After the function call ends, the return values (if
+//	any do apply) will be stored in the variables the 
+//	caller gave as input.
+
+//	Tiny-C supports recursion in its functions.
+
+//	##  Usage  ##
+
+//  Functions are called using the keyword "call",
+//	the name of the function, and a list of parameters.
+
+//	The parameters of a function may be either variables
+//	or expressions. Variables may be overwritten by the 
+//	callee, as that is the way that functions return output.
+
+//	Both the declaration and usage of functions are
+//	considered statements, and have therefore no value they
+//	can be evaluated to.
+
 function_name = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
 
-// The parameter list of functions is always a list of ids
 id_parameter_list = { id ~ (", " ~ id)* }
 
-// The parameter list when calling functions can be made up of expressions.
-// Assignment of results only gets done if the parameter list contains ids.
 free_parameter_list = { expr ~ (", " ~ expr)* }
 
 function_declaration_statement = { "fn" ~ function_name ~ "(" ~ id_parameter_list ~ ")" ~ statement }
@@ -64,7 +173,6 @@ scoped_statement = { "{" ~ statement+ ~ "}" }
 expr_statement = { expr ~ ";" }
 semicolon_statement = { ";" }
 
-//
 statement = { 
 	if_else 
 	| _if 
