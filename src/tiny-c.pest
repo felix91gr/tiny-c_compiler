@@ -39,6 +39,22 @@ printable = ${ ("\"" ~ string ~ "\"") | expr }
 
 print_statement = { "print" ~ "(" ~ printable ~ ")" ~ ";" }
 
+////////////////////////
+//     Functions      //
+////////////////////////
+function_name = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+// The parameter list of functions is always a list of ids
+id_parameter_list = { id ~ (", " ~ id)* }
+
+// The parameter list when calling functions can be made up of expressions.
+// Assignment of results only gets done if the parameter list contains ids.
+free_parameter_list = { expr ~ (", " ~ expr)* }
+
+function_declaration_statement = { "fn" ~ function_name ~ "(" ~ id_parameter_list ~ ")" ~ statement }
+
+function_usage_statement = { "call" ~ function_name ~ "(" ~ free_parameter_list ~ ")" ~ ";" }
+
 // All the different Statements
 if_else = { "if" ~ paren_expr ~ statement ~ "else" ~ statement }
 _if = { "if" ~ paren_expr ~ statement }
@@ -58,6 +74,8 @@ statement = {
 	| expr_statement
 	| semicolon_statement
 	| print_statement
+  | function_declaration_statement
+  | function_usage_statement
 } 
 
 // The language
