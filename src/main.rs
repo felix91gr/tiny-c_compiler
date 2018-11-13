@@ -3,6 +3,7 @@ extern crate pest;
 extern crate pest_derive;
 
 mod parser;
+use parser::print_error;
 use parser::parse_tc_file;
 
 //////////////////////////////////////
@@ -41,7 +42,7 @@ fn main() {
 
       match parse_result {
       	Ok(ast) => println!("AST: \n{:#?}", ast),
-      	Err(e) => eprintln!("Could not parse file: \n   {:?}", e),
+      	Err(e) => print_error(e),
       }
 		}
 	}

@@ -504,6 +504,10 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
     Ok(parse_statement(tiny_c))
 }
 
+pub fn print_error(pest_error: Error<Rule>) {
+  println!("Couldn't parse file.\nError seems to be here:\n{}", pest_error);
+}
+
 //////////////////////////////////////
 //            Unit Tests            //
 //////////////////////////////////////
