@@ -1,4 +1,3 @@
-
 //////////////////////////////////////
 //          Usage of Pest           //
 //////////////////////////////////////
@@ -182,20 +181,6 @@ impl Statement {
     }
   }
 }
-
-//////////////////////////////////////
-//          AST Displaying          //
-//////////////////////////////////////
-
-// impl fmt:Display for Statement {
-//   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//     match &self {
-//       Empty => "Empty",
-//       Expr(expression) => "Expression:",
-//     }
-//     write!(f, "({}, {})", self.x, self.y)
-//   }
-// }
 
 //////////////////////////////////////
 //         AST Construction         //

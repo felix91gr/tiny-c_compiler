@@ -40,8 +40,8 @@ fn main() {
       let parse_result = parse_tc_file(&unparsed_file);
 
       match parse_result {
-      	Ok(ast) => println!("AST: \n   {:?}", ast),
-      	Err(e) => println!("Could not parse file: \n   {:?}", e),
+      	Ok(ast) => println!("AST: \n{:#?}", ast),
+      	Err(e) => eprintln!("Could not parse file: \n   {:?}", e),
       }
 		}
 	}
