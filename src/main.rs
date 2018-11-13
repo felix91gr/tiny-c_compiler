@@ -98,6 +98,15 @@ impl Sum {
 ///////////////
 
 #[derive(Debug)]
+enum ComparisonKind {
+  LessThanOrEqual,
+  LessThan,
+  GreaterThanOrEqual,
+  GreaterThan,
+  Equal,
+}
+
+#[derive(Debug)]
 struct Expression {
   span : Span,
   inner : InnerExpression,
@@ -106,7 +115,7 @@ struct Expression {
 #[derive(Debug)]
 enum InnerExpression {
   Assignment(char, Box<Expression>),
-  Comparison(Sum, Sum),
+  Comparison(ComparisonKind, Sum, Sum),
   Value(Sum),
   Parenthesis(Box<Expression>),
 }
@@ -193,7 +202,7 @@ impl Statement {
 // }
 
 //////////////////////////////////////
-//        AST Construction          //
+//         AST Construction         //
 //////////////////////////////////////
 
 fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
@@ -333,9 +342,24 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 
           let first_sum = parse_sum(inner_pieces.next().unwrap());
 
+          let comparison_kind = match inner_pieces.next().unwrap().as_rule() {
+            
+            Rule::leq => ComparisonKind::LessThanOrEqual,
+
+            Rule::lt => ComparisonKind::LessThan,
+            
+            Rule::geq => ComparisonKind::GreaterThanOrEqual,
+            
+            Rule::gt => ComparisonKind::GreaterThan,
+            
+            Rule::eq => ComparisonKind::Equal,
+
+            _ => unreachable!()
+          };
+
           let second_sum = parse_sum(inner_pieces.next().unwrap());
 
-          InnerExpression::Comparison(first_sum, second_sum)
+          InnerExpression::Comparison(comparison_kind, first_sum, second_sum)
         },
 
         Rule::sum => InnerExpression::Value(parse_sum(pair.into_inner().next().unwrap())),
@@ -498,6 +522,95 @@ fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 
     Ok(parse_statement(tiny_c))
 }
+
+//////////////////////////////////////
+//        Semantic Analysis         //
+//////////////////////////////////////
+
+use std::collections::HashSet;
+
+#[allow(dead_code)]
+struct SymbolTable {
+  scopes: Vec<HashSet<String>>,
+}
+
+#[allow(dead_code)]
+impl SymbolTable {
+
+  fn enter_scope(&mut self) {
+    self.scopes.push(HashSet::new());
+  }
+
+  // THIS is probably the correct way to do things, but it's incomplete.
+  // fn find_symbol(&self, x: &str) -> Option<&HashSet> {
+
+  //   fn find_symbol_in_last_scope(hash_slice: &[HashSet<String>], x: &str) -> Option<&HashSet>
+  //   {
+  //     if let Some((last, elements)) = x.split_last {
+  //       if last.contains(x) {
+  //         Some(last)
+  //       }
+  //       else {
+  //         find_symbol_in_last_scope(elements)
+  //       }
+  //     }
+  //     else {
+  //       None
+  //     }
+  //   }
+
+  //   find_symbol_in_last_scope(self.scopes)
+  // }
+
+  fn find_symbol(&self, x: &str) -> bool {
+
+    fn find_symbol_in_last_scope(my_scopes: &[HashSet<String>], x: &str) -> bool
+    {
+      if let Some((last, elements)) = my_scopes.split_last() {
+        if last.contains(x) {
+          true
+        }
+        else {
+          find_symbol_in_last_scope(elements, x)
+        }
+      }
+      else {
+        false
+      }
+    }
+
+    find_symbol_in_last_scope(&self.scopes, x)
+  }
+
+  fn add_symbol(&mut self, x: &str) {
+    match self.scopes.last_mut() {
+      None => unreachable!(),
+      Some(scope) => scope.insert(x.to_string()),
+    };
+  }
+
+  fn check_scope(&self, x: &str) -> bool {
+    match self.scopes.last() {
+      Some(scope) => scope.contains(x),
+      None => false,
+    }
+  }
+
+  fn exit_scope(&mut self) {
+    self.scopes.pop();
+  }
+}
+
+// type SemanticPasses = (FunctionNames);
+
+// fn check_function_names(ast: &Statement) -> FunctionNames {
+
+// }
+
+// fn realize_semantic_passes(ast: &Statement) -> SemanticPasses {
+//   unimplemented!()
+// }
+
 
 //////////////////////////////////////
 //        The Program Itself        //

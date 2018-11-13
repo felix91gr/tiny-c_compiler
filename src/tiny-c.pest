@@ -62,7 +62,13 @@ summation = { term ~ "+" ~ sum }
 substraction = { term ~ "-" ~ sum }
 sum = { summation | substraction | term }
 
-comparison = { sum ~ "<" ~ sum }
+lt = { "<" }
+leq = { "<=" }
+gt = { ">" }
+geq = { ">=" }
+eq = { "==" }
+
+comparison = { sum ~ (leq | lt | geq | gt | eq) ~ sum }
 
 ////////////////////////////////////////////////
 //                Expressions                 //
