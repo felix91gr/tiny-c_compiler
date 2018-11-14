@@ -505,7 +505,8 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 }
 
 pub fn print_error(pest_error: Error<Rule>) {
-  println!("Couldn't parse file.\nError seems to be here:\n{}", pest_error);
+  println!("Couldn't parse file.");
+  println!("Error seems to be here: \n{}", pest_error);
 }
 
 //////////////////////////////////////
@@ -548,6 +549,24 @@ mod accepts {
     #[test]
     fn scope() {
       parse_tc_file("{;}").unwrap();      
+    }
+
+
+    #[test]
+    fn comparisons() {
+      let file = r#"
+        {
+          a < b;
+          a > b;
+
+          a == b;
+
+          a >= b;
+          a <= b;
+        }
+      "#;
+
+      parse_tc_file(file).unwrap();      
     }
 
     #[test]

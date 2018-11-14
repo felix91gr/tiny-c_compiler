@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use parser::*;
 
 //////////////////////////////////////
 //        Semantic Analysis         //
 //////////////////////////////////////
 
 #[allow(dead_code)]
+#[derive(Clone)]
 struct SymbolTable {
   scopes: Vec<HashSet<String>>,
 }
@@ -12,30 +14,15 @@ struct SymbolTable {
 #[allow(dead_code)]
 impl SymbolTable {
 
+  fn new() -> SymbolTable {
+    SymbolTable {
+      Vec::new()
+    }
+  }
+
   fn enter_scope(&mut self) {
     self.scopes.push(HashSet::new());
   }
-
-  // THIS is probably the correct way to do things, but it's incomplete.
-  // fn find_symbol(&self, x: &str) -> Option<&HashSet> {
-
-  //   fn find_symbol_in_last_scope(hash_slice: &[HashSet<String>], x: &str) -> Option<&HashSet>
-  //   {
-  //     if let Some((last, elements)) = x.split_last {
-  //       if last.contains(x) {
-  //         Some(last)
-  //       }
-  //       else {
-  //         find_symbol_in_last_scope(elements)
-  //       }
-  //     }
-  //     else {
-  //       None
-  //     }
-  //   }
-
-  //   find_symbol_in_last_scope(self.scopes)
-  // }
 
   fn find_symbol(&self, x: &str) -> bool {
 
@@ -59,8 +46,8 @@ impl SymbolTable {
 
   fn add_symbol(&mut self, x: &str) {
     match self.scopes.last_mut() {
-      None => unreachable!(),
       Some(scope) => scope.insert(x.to_string()),
+      None => unreachable!(),
     };
   }
 
@@ -74,6 +61,30 @@ impl SymbolTable {
   fn exit_scope(&mut self) {
     self.scopes.pop();
   }
+}
+
+#[derive(Debug)]
+struct SemanticError {
+  variant: ErrorVariant,
+}
+
+#[derive(Debug)]
+enum ErrorVariant {
+  DuplicatedFuncDeclaration,
+  NonExistingFunction,
+  FuncSignatureMismatch,
+}
+
+fn generate_symbol_table(ast: &Statement) -> SymbolTable {
+
+  fn populate_symbol_table(ast: &Statement, &mut SymbolTable) {
+    unimplemented!()
+  }
+
+
+
+   
+  unimplemented!()
 }
 
 // type SemanticPasses = (FunctionNames);
