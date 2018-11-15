@@ -3,6 +3,7 @@ extern crate pest;
 extern crate pest_derive;
 
 mod parser;
+use parser::display_ast;
 use parser::print_error;
 use parser::parse_tc_file;
 
@@ -42,7 +43,10 @@ fn main() {
           let parse_result = parse_tc_file(&unparsed_file);
 
           match parse_result {
-            Ok(ast) => println!("Naked (syntactic) AST: \n{:#?}", ast),
+            Ok(ast) => {
+              println!("Naked (syntactic) AST:");
+              println!("{}", display_ast(&ast, "  ", true));
+            },
             Err(e) => print_error(e),
           }
         }
@@ -60,7 +64,8 @@ fn main() {
           match parse_result {
             Ok(mut ast) => {
               ast.enrich_interior_scope_with_symbols();
-              println!("Enriched AST: \n{:#?}", ast)
+              println!("Enriched AST:");
+              println!("{}", display_ast(&ast, "  ", false));
             },
             Err(e) => print_error(e),
           }

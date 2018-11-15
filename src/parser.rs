@@ -293,6 +293,34 @@ impl Statement {
 }
 
 //////////////////////////////////////
+//           AST Display            //
+//////////////////////////////////////
+
+use std::fmt::Write;
+
+pub fn display_ast(ast: &Statement, separator: &str, hide_symbols: bool) -> String {
+  
+  let mut s = String::new();
+
+  write!(&mut s, "{:#?}", ast);
+
+  if hide_symbols {
+    let mut t = String::new();
+
+    for line in s.lines() {
+      if !line.contains("visible_symbols") {
+        t.push_str(line);
+        t.push_str("\n");
+      }
+    }
+
+    s = t;
+  }
+
+  s.replace("    ", separator)
+}
+
+//////////////////////////////////////
 //         AST Construction         //
 //////////////////////////////////////
 
