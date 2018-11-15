@@ -1,3 +1,5 @@
 
 /target
 **/*.rs.bk
+
+cli_example.yml
