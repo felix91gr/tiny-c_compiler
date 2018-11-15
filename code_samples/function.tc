@@ -1,0 +1,20 @@
+{
+	i = 1;
+
+  fn double(a) {
+    a = a + a;
+  }
+
+  v = 2;
+
+  {
+
+  	w = 3;
+
+  	fn triple(a) {
+  		a = a + a + a;
+  	}
+
+  	z = 4;
+  }
+}

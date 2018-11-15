@@ -2,6 +2,7 @@
 //          Usage of Pest           //
 //////////////////////////////////////
 
+use std::collections::HashSet;
 use pest::Parser;
 
 #[derive(Parser)]
@@ -156,6 +157,7 @@ impl Printable {
 #[derive(Debug)]
 pub struct Statement {
   span : Span,
+  visible_symbols : HashSet<String>,
   inner : InnerStatement,
 }
 
@@ -175,9 +177,117 @@ enum InnerStatement {
 
 impl Statement {
   fn new(span: Span, inner: InnerStatement) -> Statement {
+
+    let visible_symbols = HashSet::new();
+
     Statement {
       span,
-      inner
+      inner,
+      visible_symbols,
+    }
+  }
+
+  #[allow(dead_code)]
+  fn get_own_symbol(&self) -> Option<String> {
+    match &self.inner {
+      InnerStatement::FnDeclarationStatement(s, identifiers, _) => {
+        let symbol = format!("{}_{}", s, identifiers.len());
+        Some(symbol)
+      },
+      _ => None,
+    }
+  }
+
+  // FIXME: recursively descend through inner scopes?
+  pub fn get_used_symbols(&self) -> Vec<String> {
+    match &self.inner {
+      InnerStatement::FnUsageStatement(s, exprs) => {
+        let symbol = format!("{}_{}", s, exprs.len());
+        vec![symbol]
+      },
+      _ => Vec::new(),
+    }
+  }
+
+  #[allow(dead_code)]
+  fn add_visible_symbols(&mut self, visible_symbols: &HashSet<String>) {
+    
+    for symbol in visible_symbols.clone().into_iter() {
+      self.visible_symbols.insert(symbol);
+    }
+
+    // Recursive Step
+    match self.inner {
+      InnerStatement::Scope(ref mut ss) => {
+        for s in ss.iter_mut() {
+          s.add_visible_symbols(visible_symbols);
+        }
+      },
+
+      InnerStatement::DoWhile(ref mut s, _) => s.add_visible_symbols(visible_symbols),
+
+      InnerStatement::While(_, ref mut s) => s.add_visible_symbols(visible_symbols),
+
+      InnerStatement::IfElse(_, ref mut s1, ref mut s2) => {
+        s1.add_visible_symbols(visible_symbols);
+        s2.add_visible_symbols(visible_symbols);
+      },
+
+      InnerStatement::If(_, ref mut s) => s.add_visible_symbols(visible_symbols),
+
+      InnerStatement::FnDeclarationStatement(_, _, ref mut s) => s.add_visible_symbols(visible_symbols),
+
+      InnerStatement::Empty |
+      InnerStatement::Expr(_) |
+      InnerStatement::PrintStatement(_) |
+      InnerStatement::FnUsageStatement(_, _) => {},
+    }
+  }
+
+  #[allow(dead_code)]
+  pub fn enrich_interior_scope_with_symbols(&mut self) {
+    
+    // Step 0: find current scope
+    let mut scope : Vec<&mut Statement> = Vec::new();
+
+    match self.inner {
+      InnerStatement::Scope(ref mut ss) => {
+        for s in ss.iter_mut() {
+          scope.push(s);
+        }
+      },
+
+      InnerStatement::DoWhile(ref mut s, _) |
+      InnerStatement::If(_, ref mut s) |
+      InnerStatement::FnDeclarationStatement(_, _, ref mut s) |
+      InnerStatement::While(_, ref mut s) => scope.push(s),
+
+      InnerStatement::IfElse(_, ref mut s1, ref mut s2) => {
+        scope.push(s1);
+        scope.push(s2);
+      },
+
+      // Empty, Expr, PrintStmt, FnCallStmt
+      _ => {},
+    };
+
+    // Step 1: Gather Symbols
+    let mut visible_symbols = HashSet::new();
+
+    for statement in scope.iter() {
+      if let Some(symbol) = statement.get_own_symbol() {
+        visible_symbols.insert(symbol);        
+      }
+    }
+
+    // Step 2: Add this scope's Symbols recursively
+    for statement in scope.iter_mut() {
+      statement.add_visible_symbols(&visible_symbols);
+    }
+
+    // Step 3: Recurse over the interior of this statement 
+    for statement in scope.iter_mut() {
+      statement.enrich_interior_scope_with_symbols();
     }
   }
 }

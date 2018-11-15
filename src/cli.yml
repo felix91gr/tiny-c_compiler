@@ -14,3 +14,6 @@ args:
     - parse-only:  
         short: p
         help: Only parse the input file and output the AST
+    - add-symbols:  
+        short: a
+        help: Parse input file and propagate available symbols; print enriched AST afterwards.

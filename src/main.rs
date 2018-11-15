@@ -41,9 +41,29 @@ fn main() {
       let parse_result = parse_tc_file(&unparsed_file);
 
       match parse_result {
-      	Ok(ast) => println!("AST: \n{:#?}", ast),
+      	Ok(ast) => println!("Bare (purely syntactic) AST: \n{:#?}", ast),
       	Err(e) => print_error(e),
       }
 		}
 	}
+  else if matches.is_present("add-symbols") {
+    println!("Running Parser mode + Symbol propagation");
+
+    if let Some(input_file) = matches.value_of("INPUT") {
+      println!("Reading from input file: {}", input_file);
+
+      let unparsed_file = fs::read_to_string(input_file).expect("cannot read file");
+
+      let parse_result = parse_tc_file(&unparsed_file);
+
+      match parse_result {
+        Ok(mut ast) => {
+          ast.enrich_interior_scope_with_symbols();
+          // println!("AST: \n{:#?}", ast)
+          println!("Enriched AST: \n{:#?}", ast)
+        },
+        Err(e) => print_error(e),
+      }
+    }
+  }
 }
