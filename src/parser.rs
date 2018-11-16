@@ -2,7 +2,6 @@
 //          Usage of Pest           //
 //////////////////////////////////////
 
-use pest::ParseResult;
 use std::collections::HashSet;
 
 use pest::Parser;
@@ -195,7 +194,7 @@ impl<'i> Statement<'i> {
   fn get_own_symbol(&self) -> Option<String> {
     match &self.inner {
       InnerStatement::FnDeclarationStatement(s, identifiers, _) => {
-        let symbol = format!("{}_{}", s, identifiers.len());
+        let symbol = format!("{}({})", s, identifiers.len());
         Some(symbol)
       },
       _ => None,
@@ -209,7 +208,7 @@ impl<'i> Statement<'i> {
     unimplemented!();
     match &self.inner {
       InnerStatement::FnUsageStatement(s, exprs) => {
-        let symbol = format!("{}_{}", s, exprs.len());
+        let symbol = format!("{}({})", s, exprs.len());
         vec![symbol]
       },
       _ => Vec::new(),
@@ -220,11 +219,9 @@ impl<'i> Statement<'i> {
   fn add_visible_symbols(&mut self, visible_symbols: &HashSet<String>, depth: usize) -> Result<String, Error<Rule>> {
     
     for symbol in visible_symbols.clone().into_iter() {
-
       if let Some(my_symbol) = self.get_own_symbol() {
-        // FIXME: this raises a false flag when taking our own symbol.
         if depth > 0 && my_symbol == symbol {
-          let error_message = format!("Found a duplicate of this symbol: {}", symbol);
+          let error_message = format!("Duplicated symbol: {}", symbol);
 
           let error = self.make_semantic_error(error_message);
 
@@ -266,7 +263,6 @@ impl<'i> Statement<'i> {
 
   #[allow(dead_code)]
   fn make_semantic_error(&self, message: String) -> Error<Rule> {
-
     let variant = ErrorVariant::CustomError { message };
 
     Error::new_from_span(variant, self.span.clone())
