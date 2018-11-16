@@ -6,8 +6,9 @@ mod settings;
 use settings::verbosity;
 
 mod parser;
-use parser::print_sema_error;
 use parser::print_parse_error;
+use parser::print_dupe_error;
+use parser::print_sema_error;
 use parser::display_ast;
 use parser::parse_tc_file;
 
@@ -26,11 +27,11 @@ fn main() {
 	let yaml = load_yaml!("cli.yml");
   let matches = App::from_yaml(yaml).get_matches();	
 
-  println!("Running the Tiny-C Compiler...");
-
   unsafe {
     settings::VERBOSITY = matches.occurrences_of("verbose");
   }
+
+  vprintln!("Running the Tiny-C Compiler...");
 
   match verbosity() {
     0 => println!("Verbose mode: off"),
@@ -70,11 +71,44 @@ fn main() {
             Ok(mut ast) => {
               match ast.enrich_interior_scope_with_symbols() {
                 Ok(_) => {
+                  vprintln!("File passes symbol propagation!");
                   vprintln!("Enriched AST:");
                   println!("{}", display_ast(&ast, "  ", false));
                 }
                 Err(e) => {
-                  print_sema_error(e);
+                  print_dupe_error(e);
+                }
+              }
+            },
+            Err(e) => print_parse_error(e),
+          }
+        },
+
+        "semantic-analysis" => {
+          vprintln!("Running Parser + Symbol propagation + Symbol reachability analysis");
+
+          let parse_result = parse_tc_file(&unparsed_file);
+
+          match parse_result {
+            
+            Ok(mut ast) => {
+              match ast.enrich_interior_scope_with_symbols() {
+            
+                Ok(_) => {
+                  match ast.check_reachability_of_used_symbols() {
+
+                    Ok(_) => {
+                      println!("File passes the semantic analysis!");
+                      vprintln!("Enriched AST:");
+                      println!("{}", display_ast(&ast, "  ", false));
+                    }
+                    Err(e) => {
+                      print_sema_error(e)
+                    }
+                  }
+                }
+                Err(e) => {
+                  print_dupe_error(e);
                 }
               }
             },

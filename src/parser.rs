@@ -190,7 +190,6 @@ impl<'i> Statement<'i> {
     }
   }
 
-  #[allow(dead_code)]
   fn get_own_symbol(&self) -> Option<String> {
     match &self.inner {
       InnerStatement::FnDeclarationStatement(s, identifiers, _) => {
@@ -201,21 +200,21 @@ impl<'i> Statement<'i> {
     }
   }
 
-  // FIXME: recursively descend through inner scopes?
-  #[allow(unreachable_code)]
-  #[allow(dead_code)]
-  pub fn get_used_symbols(&self) -> Vec<String> {
-    unimplemented!();
+  fn get_used_symbols(&self) -> HashSet<String> {
+    
+    let mut used_symbols = HashSet::new();
+
     match &self.inner {
       InnerStatement::FnUsageStatement(s, exprs) => {
         let symbol = format!("{}({})", s, exprs.len());
-        vec![symbol]
+        used_symbols.insert(symbol);
       },
-      _ => Vec::new(),
+      _ => {},
     }
+
+    used_symbols
   }
 
-  #[allow(dead_code)]
   fn add_visible_symbols(&mut self, visible_symbols: &HashSet<String>, depth: usize) -> Result<String, Error<Rule>> {
     
     for symbol in visible_symbols.clone().into_iter() {
@@ -261,14 +260,12 @@ impl<'i> Statement<'i> {
     Ok("Symbols added successfully".to_string())
   }
 
-  #[allow(dead_code)]
   fn make_semantic_error(&self, message: String) -> Error<Rule> {
     let variant = ErrorVariant::CustomError { message };
 
     Error::new_from_span(variant, self.span.clone())
   } 
 
-  #[allow(dead_code)]
   pub fn enrich_interior_scope_with_symbols(&mut self) -> Result<String, Error<Rule>> {
     
     ////// Step 0:
@@ -298,6 +295,7 @@ impl<'i> Statement<'i> {
 
     ////// Step 1: 
     ////// Gather Symbols
+    
     let mut visible_symbols = HashSet::new();
 
     for statement in scope.iter() {
@@ -320,6 +318,55 @@ impl<'i> Statement<'i> {
 
     // If everything went well, we return a success message.
     Ok("Symbol enrichment successful".to_string())
+  }
+
+  pub fn check_reachability_of_used_symbols(&self) -> Result<String, Error<Rule>> {
+
+    ////// Step 0:
+    ////// find current scope
+    let mut scope : Vec<&Statement> = Vec::new();
+
+    match self.inner {
+      InnerStatement::Scope(ref ss) => {
+        for s in ss.iter() {
+          scope.push(s);
+        }
+      },
+
+      InnerStatement::DoWhile(ref s, _) |
+      InnerStatement::If(_, ref s) |
+      InnerStatement::FnDeclarationStatement(_, _, ref s) |
+      InnerStatement::While(_, ref s) => scope.push(s),
+
+      InnerStatement::IfElse(_, ref s1, ref s2) => {
+        scope.push(s1);
+        scope.push(s2);
+      },
+
+      // Empty, Expr, PrintStmt, FnUsageStmt
+      _ => {},
+    };
+
+    ////// Step 1: 
+    ////// Recurse over the interior of this statement 
+    for statement in scope.iter() {
+      statement.check_reachability_of_used_symbols()?;
+    }
+
+    let used_symbols = self.get_used_symbols();
+
+    if used_symbols.is_subset(&self.visible_symbols) {
+      Ok("All used symbols are available to this node.".to_string())
+    }
+    else {
+      let mut list_of_missing_symbols = String::new();
+
+      for missing_s in used_symbols.difference(&self.visible_symbols) {
+        list_of_missing_symbols.push_str(&format!("{}, ", missing_s));
+      }
+
+      Err(self.make_semantic_error(format!("Unreachable symbols: {}", list_of_missing_symbols)))
+    }
   }
 }
 
@@ -655,14 +702,23 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
     Ok(parse_statement(tiny_c))
 }
 
-pub fn print_parse_error(pest_error: Error<Rule>) {
-  println!("Couldn't parse file.");
+fn print_error(pest_error: Error<Rule>) {
   println!("Error seems to be here: \n{}", pest_error);
 }
 
+pub fn print_parse_error(pest_error: Error<Rule>) {
+  println!("Couldn't parse file.");
+  print_error(pest_error);
+}
+
+pub fn print_dupe_error(pest_error: Error<Rule>) {
+  println!("There seem to be duplicated symbols.");
+  print_error(pest_error);
+}
+
 pub fn print_sema_error(pest_error: Error<Rule>) {
-  println!("File fails to pass semantic analysis");
-  println!("Error seems to be here: \n{}", pest_error);
+  println!("File fails to pass semantic analysis!");
+  print_error(pest_error);
 }
 
 //////////////////////////////////////

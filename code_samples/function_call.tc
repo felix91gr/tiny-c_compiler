@@ -1,0 +1,19 @@
+{
+	i = 1;
+
+  fn double(a) {
+    a = a + a;
+  }
+
+  v = 2;
+
+  {
+
+  	w = 3;
+
+    // This should trigger an error, because we're redefining an existing symbol.
+  	call double(b);
+    
+  	z = 4;
+  }
+}

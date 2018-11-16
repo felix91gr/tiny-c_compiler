@@ -1,0 +1,23 @@
+{
+	i = 1;
+
+  fn double(a) {
+    a = a + a;
+  }
+
+  call triple(b);
+
+  v = 2;
+
+  {
+
+  	w = 3;
+
+    // This should trigger an error, because we're redefining an existing symbol.
+  	fn triple(b) {
+      b = b + b + b;
+    }
+    
+  	z = 4;
+  }
+}

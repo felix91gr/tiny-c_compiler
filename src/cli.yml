@@ -14,6 +14,7 @@ args:
         possible_values:
             - parse
             - add-symbols
+            - semantic-analysis
     - verbose:
         short: v
         multiple: true
