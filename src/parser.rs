@@ -2,7 +2,9 @@
 //          Usage of Pest           //
 //////////////////////////////////////
 
+use pest::ParseResult;
 use std::collections::HashSet;
+
 use pest::Parser;
 
 #[derive(Parser)]
@@ -10,25 +12,27 @@ use pest::Parser;
 struct TinyCParser;
 
 use pest::error::Error;
+use pest::error::ErrorVariant;
 use pest::iterators::Pair;  
+use pest::Span;
 
 //////////////////////////////////////
 //          AST Definitions         //
 //////////////////////////////////////
 
-type Span = (usize, usize);
+// type Span = (usize, usize);
 
 ///////////////
 //  Id Node  //
 ///////////////
 
 #[derive(Debug)]
-struct Identifier {
-  span : Span,
+struct Identifier<'i> {
+  span : Span<'i>,
   inner : char,
 }
 
-impl Identifier {
+impl<'i> Identifier<'i> {
   fn new(span: Span, inner: char) -> Identifier {
     Identifier {
       span,
@@ -42,20 +46,20 @@ impl Identifier {
 ///////////////
 
 #[derive(Debug)]
-struct Term {
-  span : Span,
-  inner : InnerTerm,
+struct Term<'i> {
+  span : Span<'i>,
+  inner : InnerTerm<'i>,
 }
 
 #[derive(Debug)]
-enum InnerTerm {
-  Id(Identifier),
+enum InnerTerm<'i> {
+  Id(Identifier<'i>),
   Int(u32),
-  Expr(Box<Expression>)
+  Expr(Box<Expression<'i>>)
 }
 
-impl Term {
-  fn new(span: Span, inner: InnerTerm) -> Term {
+impl<'i> Term<'i> {
+  fn new(span: Span<'i>, inner: InnerTerm<'i>) -> Term<'i> {
     Term {
       span,
       inner
@@ -68,20 +72,20 @@ impl Term {
 //////////////
 
 #[derive(Debug)]
-struct Sum {
-  span : Span,
-  inner : InnerSum,
+struct Sum<'i> {
+  span : Span<'i>,
+  inner : InnerSum<'i>,
 }
 
 #[derive(Debug)]
-enum InnerSum {
-  Tm(Term),
-  Summation(Term, Box<Sum>),
-  Substraction(Term, Box<Sum>)
+enum InnerSum<'i> {
+  Tm(Term<'i>),
+  Summation(Term<'i>, Box<Sum<'i>>),
+  Substraction(Term<'i>, Box<Sum<'i>>)
 }
 
-impl Sum {
-  fn new(span: Span, inner: InnerSum) -> Sum {
+impl<'i> Sum<'i> {
+  fn new(span: Span<'i>, inner: InnerSum<'i>) -> Sum<'i> {
     Sum {
       span,
       inner
@@ -103,21 +107,21 @@ enum ComparisonKind {
 }
 
 #[derive(Debug)]
-struct Expression {
-  span : Span,
-  inner : InnerExpression,
+struct Expression<'i> {
+  span : Span<'i>,
+  inner : InnerExpression<'i>,
 }
 
 #[derive(Debug)]
-enum InnerExpression {
-  Assignment(char, Box<Expression>),
-  Comparison(ComparisonKind, Sum, Sum),
-  Value(Sum),
-  Parenthesis(Box<Expression>),
+enum InnerExpression<'i> {
+  Assignment(char, Box<Expression<'i>>),
+  Comparison(ComparisonKind, Sum<'i>, Sum<'i>),
+  Value(Sum<'i>),
+  Parenthesis(Box<Expression<'i>>),
 }
 
-impl Expression {
-  fn new(span: Span, inner: InnerExpression) -> Expression {
+impl<'i> Expression<'i> {
+  fn new(span: Span<'i>, inner: InnerExpression<'i>) -> Expression<'i> {
     Expression {
       span,
       inner
@@ -130,19 +134,19 @@ impl Expression {
 ///////////////
 
 #[derive(Debug)]
-struct Printable {
-  span : Span,
-  inner : InnerPrintable,
+struct Printable<'i> {
+  span : Span<'i>,
+  inner : InnerPrintable<'i>,
 }
 
 #[derive(Debug)]
-enum InnerPrintable {
+enum InnerPrintable<'i> {
   Str(String),
-  Expr(Expression),
+  Expr(Expression<'i>),
 }
 
-impl Printable {
-  fn new(span: Span, inner: InnerPrintable) -> Printable {
+impl<'i> Printable<'i> {
+  fn new(span: Span<'i>, inner: InnerPrintable<'i>) -> Printable<'i> {
     Printable {
       span,
       inner
@@ -155,28 +159,28 @@ impl Printable {
 ///////////////
 
 #[derive(Debug)]
-pub struct Statement {
-  span : Span,
+pub struct Statement<'i> {
+  span : Span<'i>,
   visible_symbols : HashSet<String>,
-  inner : InnerStatement,
+  inner : InnerStatement<'i>,
 }
 
 #[derive(Debug)]
-enum InnerStatement {
+enum InnerStatement<'i> {
   Empty,
-  Expr(Expression),
-  Scope(Vec<Statement>),
-  DoWhile(Box<Statement>, Expression),
-  While(Expression, Box<Statement>),
-  IfElse(Expression, Box<Statement>, Box<Statement>),
-  If(Expression, Box<Statement>),
-  PrintStatement(Printable),
-  FnDeclarationStatement(String, Vec<Identifier>, Box<Statement>),
-  FnUsageStatement(String, Vec<Expression>),
+  Expr(Expression<'i>),
+  Scope(Vec<Statement<'i>>),
+  DoWhile(Box<Statement<'i>>, Expression<'i>),
+  While(Expression<'i>, Box<Statement<'i>>),
+  IfElse(Expression<'i>, Box<Statement<'i>>, Box<Statement<'i>>),
+  If(Expression<'i>, Box<Statement<'i>>),
+  PrintStatement(Printable<'i>),
+  FnDeclarationStatement(String, Vec<Identifier<'i>>, Box<Statement<'i>>),
+  FnUsageStatement(String, Vec<Expression<'i>>),
 }
 
-impl Statement {
-  fn new(span: Span, inner: InnerStatement) -> Statement {
+impl<'i> Statement<'i> {
+  fn new(span: Span<'i>, inner: InnerStatement<'i>) -> Statement<'i> {
 
     let visible_symbols = HashSet::new();
 
@@ -199,7 +203,10 @@ impl Statement {
   }
 
   // FIXME: recursively descend through inner scopes?
+  #[allow(unreachable_code)]
+  #[allow(dead_code)]
   pub fn get_used_symbols(&self) -> Vec<String> {
+    unimplemented!();
     match &self.inner {
       InnerStatement::FnUsageStatement(s, exprs) => {
         let symbol = format!("{}_{}", s, exprs.len());
@@ -210,44 +217,66 @@ impl Statement {
   }
 
   #[allow(dead_code)]
-  fn add_visible_symbols(&mut self, visible_symbols: &HashSet<String>) {
+  fn add_visible_symbols(&mut self, visible_symbols: &HashSet<String>, depth: usize) -> Result<String, Error<Rule>> {
     
     for symbol in visible_symbols.clone().into_iter() {
+
+      if let Some(my_symbol) = self.get_own_symbol() {
+        // FIXME: this raises a false flag when taking our own symbol.
+        if depth > 0 && my_symbol == symbol {
+          let error_message = format!("Found a duplicate of this symbol: {}", symbol);
+
+          let error = self.make_semantic_error(error_message);
+
+          return Err(error);
+        }
+      }
+
       self.visible_symbols.insert(symbol);
     }
+
+    let new_depth = depth + 1;
 
     // Recursive Step
     match self.inner {
       InnerStatement::Scope(ref mut ss) => {
         for s in ss.iter_mut() {
-          s.add_visible_symbols(visible_symbols);
+          s.add_visible_symbols(visible_symbols, new_depth)?;
         }
       },
 
-      InnerStatement::DoWhile(ref mut s, _) => s.add_visible_symbols(visible_symbols),
-
-      InnerStatement::While(_, ref mut s) => s.add_visible_symbols(visible_symbols),
-
-      InnerStatement::IfElse(_, ref mut s1, ref mut s2) => {
-        s1.add_visible_symbols(visible_symbols);
-        s2.add_visible_symbols(visible_symbols);
+      InnerStatement::DoWhile(ref mut s, _) |
+      InnerStatement::While(_, ref mut s) |
+      InnerStatement::If(_, ref mut s) |
+      InnerStatement::FnDeclarationStatement(_, _, ref mut s) => { 
+        s.add_visible_symbols(visible_symbols, new_depth)?; 
       },
 
-      InnerStatement::If(_, ref mut s) => s.add_visible_symbols(visible_symbols),
+      InnerStatement::IfElse(_, ref mut s1, ref mut s2) => {
+        s1.add_visible_symbols(visible_symbols, new_depth)?;
+        s2.add_visible_symbols(visible_symbols, new_depth)?;
+      },
 
-      InnerStatement::FnDeclarationStatement(_, _, ref mut s) => s.add_visible_symbols(visible_symbols),
-
-      InnerStatement::Empty |
-      InnerStatement::Expr(_) |
-      InnerStatement::PrintStatement(_) |
-      InnerStatement::FnUsageStatement(_, _) => {},
+      // Empty, Expr, PrintStmt, FnUsageStmt
+      _ => {},
     }
+
+    Ok("Symbols added successfully".to_string())
   }
 
   #[allow(dead_code)]
-  pub fn enrich_interior_scope_with_symbols(&mut self) {
+  fn make_semantic_error(&self, message: String) -> Error<Rule> {
+
+    let variant = ErrorVariant::CustomError { message };
+
+    Error::new_from_span(variant, self.span.clone())
+  } 
+
+  #[allow(dead_code)]
+  pub fn enrich_interior_scope_with_symbols(&mut self) -> Result<String, Error<Rule>> {
     
-    // Step 0: find current scope
+    ////// Step 0:
+    ////// find current scope
     let mut scope : Vec<&mut Statement> = Vec::new();
 
     match self.inner {
@@ -267,11 +296,12 @@ impl Statement {
         scope.push(s2);
       },
 
-      // Empty, Expr, PrintStmt, FnCallStmt
+      // Empty, Expr, PrintStmt, FnUsageStmt
       _ => {},
     };
 
-    // Step 1: Gather Symbols
+    ////// Step 1: 
+    ////// Gather Symbols
     let mut visible_symbols = HashSet::new();
 
     for statement in scope.iter() {
@@ -280,15 +310,20 @@ impl Statement {
       }
     }
 
-    // Step 2: Add this scope's Symbols recursively
+    ////// Step 2:
+    ////// Add this scope's Symbols recursively
     for statement in scope.iter_mut() {
-      statement.add_visible_symbols(&visible_symbols);
+      statement.add_visible_symbols(&visible_symbols, 0)?;
     }
 
-    // Step 3: Recurse over the interior of this statement 
+    ////// Step 3: 
+    ////// Recurse over the interior of this statement 
     for statement in scope.iter_mut() {
-      statement.enrich_interior_scope_with_symbols();
+      statement.enrich_interior_scope_with_symbols()?;
     }
+
+    // If everything went well, we return a success message.
+    Ok("Symbol enrichment successful".to_string())
   }
 }
 
@@ -332,9 +367,6 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 
       let span = pair.as_span();
 
-      let start = span.start();
-      let end = span.end();
-
       let inner = match pair.as_rule() {
 
         Rule::id => pair.as_str().chars().next().unwrap(),
@@ -342,15 +374,12 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         _ => unreachable!()
       };
 
-      Identifier::new((start, end), inner)
+      Identifier::new(span, inner)
     }
 
     fn parse_term(pair: Pair<Rule>) -> Term {
       
       let span = pair.as_span();
-
-      let start = span.start();
-      let end = span.end();
 
       let inner = match pair.as_rule() {
         Rule::id => InnerTerm::Id(parse_identifier(pair)),
@@ -373,16 +402,13 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         },
       };
 
-      Term::new((start, end), inner)
+      Term::new(span, inner)
     }
 
     fn parse_sum(pair: Pair<Rule>) -> Sum {
       
       let span = pair.as_span();
 
-      let start = span.start();
-      let end = span.end();
-      
       let inner = match pair.as_rule() {
         Rule::term => {
           let term = parse_term(pair.into_inner().next().unwrap());
@@ -420,15 +446,12 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         }
       };
 
-      Sum::new((start, end), inner)
+      Sum::new(span, inner)
     }
 
     fn parse_expression(pair: Pair<Rule>) -> Expression {
             
       let span = pair.as_span();
-
-      let start = span.start();
-      let end = span.end();
 
       let inner = match pair.as_rule() {
 
@@ -493,15 +516,12 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         },
       };
 
-      Expression::new((start, end), inner)
+      Expression::new(span, inner)
     }
 
     fn parse_printable(pair: Pair<Rule>) -> Printable {
                   
       let span = pair.as_span();
-
-      let start = span.start();
-      let end = span.end();
 
       let inner = match pair.as_rule() {
 
@@ -522,15 +542,12 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         _ => unreachable!(),
       };
 
-      Printable::new((start, end), inner)
+      Printable::new(span, inner)
     }
 
     fn parse_statement(pair: Pair<Rule>) -> Statement {
             
       let span = pair.as_span();
-
-      let start = span.start();
-      let end = span.end();
 
       let inner = match pair.as_rule() {
 
@@ -636,14 +653,19 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
         _ => unreachable!(),
       };
 
-      Statement::new((start, end), inner)
+      Statement::new(span, inner)
     }
 
     Ok(parse_statement(tiny_c))
 }
 
-pub fn print_error(pest_error: Error<Rule>) {
+pub fn print_parse_error(pest_error: Error<Rule>) {
   println!("Couldn't parse file.");
+  println!("Error seems to be here: \n{}", pest_error);
+}
+
+pub fn print_sema_error(pest_error: Error<Rule>) {
+  println!("File fails to pass semantic analysis");
   println!("Error seems to be here: \n{}", pest_error);
 }
 

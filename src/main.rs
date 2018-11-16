@@ -3,8 +3,9 @@ extern crate pest;
 extern crate pest_derive;
 
 mod parser;
+use parser::print_sema_error;
+use parser::print_parse_error;
 use parser::display_ast;
-use parser::print_error;
 use parser::parse_tc_file;
 
 //////////////////////////////////////
@@ -47,7 +48,7 @@ fn main() {
               println!("Naked (syntactic) AST:");
               println!("{}", display_ast(&ast, "  ", true));
             },
-            Err(e) => print_error(e),
+            Err(e) => print_parse_error(e),
           }
         }
       },
@@ -63,15 +64,24 @@ fn main() {
 
           match parse_result {
             Ok(mut ast) => {
-              ast.enrich_interior_scope_with_symbols();
-              println!("Enriched AST:");
-              println!("{}", display_ast(&ast, "  ", false));
+              match ast.enrich_interior_scope_with_symbols() {
+                Ok(_) => {
+                  println!("Enriched AST:");
+                  println!("{}", display_ast(&ast, "  ", false));
+                }
+                Err(e) => {
+                  print_sema_error(e);
+                }
+              }
             },
-            Err(e) => print_error(e),
+            Err(e) => print_parse_error(e),
           }
         }
       },
-      _ => unreachable!(),
+      _ => {
+        println!("(Compiler says:) I need to be updated, because there is a compilation mode that is not being handled!");
+        unreachable!()
+      },
     }
   }
 }
