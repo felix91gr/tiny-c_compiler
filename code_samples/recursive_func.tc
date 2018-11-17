@@ -1,0 +1,23 @@
+{
+	// b stores the result of the operation
+	fn fibonacci(a, b) {
+		if (a < 2)
+			b = 1;
+		else {
+			c = a - 1;
+			d = a - 2;
+			e = 0;
+			f = 0;
+	
+			call fibonacci(c, e);
+			call fibonacci(d, f);
+	
+			b = e + f;
+		}
+	}
+
+	call fibonacci(5 + 1, a);
+	
+	print("Resultado:");
+	print(a);
+}

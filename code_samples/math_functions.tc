@@ -1,0 +1,71 @@
+{
+	// a and b store the result of the operation
+	fn mul(a, b) {
+		c = 0;
+
+		while (a > 0) {
+			c = c + b;
+			a = a - 1;
+		}
+
+		a = c;
+		b = c;
+	}
+
+	// a stores the quotient, b the remainder
+	fn div(a, b) {
+
+		q = 0;
+
+		while(a > b) {
+			q = q + 1;
+			a = a - b;
+		}
+
+		r = a;	// Remainder was left in a. We copy it.
+
+		a = q;	// Quotient is returned in a
+		b = r;	// Remainder is returned in b
+	}
+
+	a = 3;
+	b = 5;
+	r = b;
+
+	call mul(a, r);
+
+	print("Resultado de 3 x 5:");
+	print(r);
+
+	a = 199;
+	b = 12;
+
+	q = a;
+	r = b;
+
+	call div(q, r);
+
+	print("Resultado de 199 / 5:");
+	print("Cociente:");
+	print(q);
+	print("Resto:");
+	print(r);
+
+	fn factorial(n) {
+		if(n <= 1) {
+			n = 1;
+		}
+		else {
+			m = n - 1;
+			call factorial(m);
+			call mul(m, n);
+		}
+	}
+
+	n = 10;
+
+	call factorial(n);
+
+	print("10! es:");
+	print(n);
+}
