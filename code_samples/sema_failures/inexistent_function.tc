@@ -11,7 +11,8 @@
 
   	w = 3;
 
-    // This should trigger an error, because we're redefining an existing symbol.
+    // This should trigger an error, 
+    // because this symbol doesn't exist.
   	call triple(b);
     
   	z = 4;

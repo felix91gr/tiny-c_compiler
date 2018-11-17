@@ -5,6 +5,8 @@
     a = a + a;
   }
 
+  // This should trigger an error, 
+  // because this symbol is unreachable.
   call triple(b);
 
   v = 2;
@@ -12,8 +14,7 @@
   {
 
   	w = 3;
-
-    // This should trigger an error, because we're redefining an existing symbol.
+    
   	fn triple(b) {
       b = b + b + b;
     }

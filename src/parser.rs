@@ -703,21 +703,21 @@ pub fn parse_tc_file(file: &str) -> Result<Statement, Error<Rule>> {
 }
 
 fn print_error(pest_error: Error<Rule>) {
-  println!("Error seems to be here: \n{}", pest_error);
+  eprintln!("We think the error is here: \n{}", pest_error);
 }
 
 pub fn print_parse_error(pest_error: Error<Rule>) {
-  println!("Couldn't parse file.");
+  eprintln!("Couldn't parse file.");
   print_error(pest_error);
 }
 
 pub fn print_dupe_error(pest_error: Error<Rule>) {
-  println!("There seem to be duplicated symbols.");
+  eprintln!("There seem to be duplicated symbols.");
   print_error(pest_error);
 }
 
 pub fn print_sema_error(pest_error: Error<Rule>) {
-  println!("File fails to pass semantic analysis!");
+  eprintln!("File fails to pass semantic analysis!");
   print_error(pest_error);
 }
 
