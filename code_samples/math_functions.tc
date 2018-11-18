@@ -51,6 +51,13 @@
 	print("Resto:");
 	print(r);
 
+	/*
+		Factorial of n:
+
+		- For 0 or 1, it's 1.
+		- For n > 1, it's f(n - 1) x n.
+	*/
+
 	fn factorial(n) {
 		if(n <= 1) {
 			n = 1;

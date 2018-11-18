@@ -22,13 +22,15 @@ cargo build
 Then, run it feeding it some code:
 
 ```bash
-target/debug/tiny-c-parser -p code_samples/do_while_example.tc
+cargo run -- -v parse code_samples/do_while_example.tc
+cargo run -- -v add-symbols code_samples/function_call.tc
+cargo run -- -v semantic-analysis code_samples/math_functions.tc
 ```
 
 You can also check the included usage help:
 
 ```bash
-target/debug/tiny-c-parser --help
+cargo run -- --help
 ```
 
 ### Running the tests
@@ -39,3 +41,8 @@ To run the unit tests:
 cargo test
 ```
 
+## Syntax Highlighting
+
+You can have syntax highlighting for Tiny-C on your editor of choice (if, by choice, you mean VSCode or Sublime Text!). 
+
+It's pretty nice. Instructions are available [here](https://github.com/felix91gr/tiny-c-syntax_highlighting).
