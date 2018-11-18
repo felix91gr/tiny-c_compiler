@@ -34,7 +34,7 @@ print(...)
 
 #### EBNF
 
-(OUTDATED) La gramática del lenguaje, en EBNF, es:
+La gramática del lenguaje actualizada es en EBNF:
 
 ```
 <program> ::= <statement>
@@ -44,14 +44,20 @@ print(...)
                 "do" <statement> "while" <paren_expr> ";" |
                 "{" { <statement>+ } "}" |
                 <expr> ";" |
-                ";"
+                ";" |
+                "print(" <printable> ")"
+                "fn" <func_name> "(" { {id} {"," {id}}* }? ")"
+                "call" <func_name> "(" { {expr | id} {"," {expr | id}}* }? ")"
 <paren_expr> ::= "(" <expr> ")"
 <expr> ::= <test> | <id> "=" <expr>
-<test> ::= <sum> | <sum> "<" <sum>
+<test> ::= <sum> | <sum> <comp> <sum>
 <sum> ::= <term> | <sum> "+" <term> | <sum> "-" <term>
 <term> ::= <id> | <int> | <paren_expr>
 <id> ::= "a" | "b" | "c" | "d" | ... | "z"
 <int> ::= <an_unsigned_decimal_integer>
+<func_name> ::= <ascii_letter> <alphanumeric>*
+<comp> ::= "<" | ">" | "<=" | ">=" | "=="
+<printable> ::= {'"' <a_string_literal> '"' } | <id>
 ```
 
 #### PEG
