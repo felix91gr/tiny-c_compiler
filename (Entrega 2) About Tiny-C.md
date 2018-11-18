@@ -238,15 +238,15 @@ function_usage_statement = { "call" ~ function_name ~ "(" ~ free_parameter_list 
 ////////////////////////////////////////////////
 
 //  Control Flow statements allow for branching 
-//	flow and conditional repetition of actions.
+//  flow and conditional repetition of actions.
 
-//	Their usage and syntax is pretty much the 
-//	same as in C, with two caveats:
+//  Their usage and syntax is pretty much the 
+//  same as in C, with two caveats:
 
-//	- Conditions cannot be combined with && nor ||
-//	- Conditions are represented as integers: 
-//		x = 0 is False
-//		x > 0	is True
+//  - Conditions cannot be combined with && nor ||
+//  - Conditions are represented as integers: 
+//    x = 0 is False
+//    x > 0  is True
 
 if_else = { "if" ~ paren_expr ~ statement ~ "else" ~ statement }
 _if = { "if" ~ paren_expr ~ statement }
@@ -264,12 +264,12 @@ _while = { "while" ~ paren_expr ~ statement }
 //  Other Statements include:
 
 //  - The Scoped Statement, which encloses one or
-//		more Statements inside of it (useful for Ifs 
-//		and Whiles)
+//    more Statements inside of it (useful for Ifs 
+//    and Whiles)
 scoped_statement = { "{" ~ statement+ ~ "}" }
 
 //  - The Expression Statement, which encapsulates 
-//		an expression, turning it into a statement.
+//    an expression, turning it into a statement.
 expr_statement = { expr ~ ";" }
 
 //  - The Semicolon Statement, which is a no-op.
@@ -299,4 +299,250 @@ statement = {
 
 tiny_c = _{ SOI ~ statement ~ EOI }
 
+```
+
+### Semántica
+
+Buena parte de los errores de escritura son capturados por la gramática. Sin embargo, hay dos tipos de error que no es posible buscar sin pasar al nivel semántico: duplicación de símbolos, y símbolos inalcanzables o no existentes.
+
+#### Símbolos duplicados
+
+No está permitido declarar dos funciones con la misma firma. Por ejemplo:
+
+```c
+{
+  fn double(a) {
+    a = a + a;
+  }
+
+  // This triggers an error, because we're redefining an existing symbol.
+  fn double(b) {
+    b = b + b;
+  }
+
+}
+```
+
+Sin embargo, si dos funciones difieren en el número de parámetros que aceptan, entonces se consideran funciones distintas:
+
+```c
+{
+  fn double(a) {
+    a = a + a;
+  }
+
+  // This is okay. We're defining an entirely different symbol
+  fn double(a, b) {
+    a = a + a;
+    b = b + b;
+  }
+
+}
+```
+
+Si dos funciones con la misma firma no son alcanzables entre ellas, entonces está todo bien: sus definiciones se aplican a sus scopes respectivos:
+
+```c
+{
+  {
+    fn double(a) {
+      a = a + a;
+    }
+  }
+
+  {
+    // This is okay, both symbols belong to different, unconnected spaces.
+    fn double(b) {
+      b = b + b;
+    }
+  }
+
+}
+```
+
+#### Símbolos inalcanzables y símbolos no existentes
+
+No está permitido llamar a funciones que no existen o que no son visibles desde el punto de llamada. Por ejemplo:
+
+
+```c
+{
+  fn double(a) {
+    a = a + a;
+  }
+
+  // Symbol doesn't exist, therefore this call doesn't make any sense.
+  call triple(a);
+}
+```
+
+También se gatilla un error si el símbolo existe pero no es alcanzable:
+
+```c
+{
+  {
+    fn triple(a) {
+      a = a + a + a;
+    }
+  }
+
+  // Symbol is unreachable from here!
+  call triple(a);
+}
+```
+
+No hay problemas si el símbolo existe en un scope superior, pues es alcanzable:
+
+```c
+{
+  
+  fn triple(a) {
+    a = a + a + a;
+  }
+  
+  {
+    // Symbol is visible from here; everything's alright.
+    call triple(a);
+  }
+}
+```
+
+### UX
+
+#### Feedback de Errores
+
+La experiencia de uso del compilador ha mejorado considerablemente. Ahora los mensajes de error son directos, para los 3 modos de operación:
+
+```console
+Running the Tiny-C Compiler...
+Verbose mode: on
+Reading from input file: code_samples/parse_failures/bad_print.tc
+Running in Parser mode
+Couldn't parse file.
+We think the error is here: 
+ --> 2:3
+  |
+2 |   prink("Hello");
+  |   ^---
+  |
+  = expected lt, leq, gt, geq, or eq
+```
+
+```console
+Running the Tiny-C Compiler...
+Verbose mode: on
+Reading from input file: code_samples/sema_failures/duplicated_function.tc
+Running Parser mode + Symbol propagation
+There seem to be duplicated symbols.
+We think the error is here: 
+  --> 15:4
+   |
+15 |    fn double(a) {
+   | ...
+17 |    }
+   |    ^
+   |
+   = Duplicated symbol: double(1)
+```
+
+```console
+Running the Tiny-C Compiler...
+Verbose mode: on
+Reading from input file: code_samples/sema_failures/unreachable_function.tc
+Running Parser + Symbol propagation + Symbol reachability analysis
+File fails to pass semantic analysis!
+We think the error is here: 
+  --> 10:3
+   |
+10 |   call triple(b);
+   |   ^-------------^
+   |
+   = Unreachable symbols: triple(1), 
+```
+  
+#### Formato y captura de información
+
+La información del AST se muestra con indentación apropiada, se muestra el origen en el texto fuente de los nodos del árbol, y el string que capturan. También se muestran los símbolos alcanzables, si corresponde mostrarlos.
+
+```console
+Statement {
+  span: Span {
+    str: "do ; while (i) ;",
+    start: 0,
+    end: 16
+  },
+  visible_symbols: {},
+  inner: DoWhile(
+    Statement {
+      span: Span {
+        str: ";",
+        start: 3,
+        end: 4
+      },
+      visible_symbols: {},
+      inner: Empty
+    },
+    Expression {
+      span: Span {
+        str: "(i)",
+        start: 11,
+        end: 14
+      },
+      inner: Parenthesis(
+        Expression {
+          span: Span {
+            str: "i",
+            start: 12,
+            end: 13
+          },
+          inner: Value(
+            Sum {
+              span: Span {
+                str: "i",
+                start: 12,
+                end: 13
+              },
+              inner: Tm(
+                Term {
+                  span: Span {
+                    str: "i",
+                    start: 12,
+                    end: 13
+                  },
+                  inner: Id(
+                    Identifier {
+                      span: Span {
+                        str: "i",
+                        start: 12,
+                        end: 13
+                      },
+                      inner: 'i'
+                    }
+                  )
+                }
+              )
+            }
+          )
+        }
+      )
+    }
+  )
+}
+
+```
+
+#### Verbose mode
+
+Se implementó el modo verboso de compilación. Por el momento el efecto es superficial, pero sirve para aquellos que gustan de no tener nada que no sea esencial:
+
+```console
+Verbose mode: off
+File fails to pass semantic analysis!
+We think the error is here: 
+  --> 16:4
+   |
+16 |    call triple(b);
+   |    ^-------------^
+   |
+   = Unreachable symbols: triple(1), 
 ```
