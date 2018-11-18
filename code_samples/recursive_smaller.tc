@@ -1,0 +1,23 @@
+{
+	// Recursive, with just one variable
+	fn fibonacci(a) {
+		if (a < 2)
+			a = 1;
+		else {
+			b = a - 1;
+			c = a - 2;
+	
+			call fibonacci(b);
+			call fibonacci(c);
+	
+			a = b + c;
+		}
+	}
+
+	a = 6
+
+	call fibonacci(a);
+	
+	print("Resultado:");
+	print(a);
+}
