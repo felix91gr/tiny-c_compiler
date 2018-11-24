@@ -1,6 +1,13 @@
 extern crate pest;
+
 #[macro_use]
 extern crate pest_derive;
+
+#[cfg(test)]
+extern crate synfuzz;
+
+#[cfg(test)]
+extern crate thousands;
 
 mod settings;
 use settings::verbosity;
@@ -11,6 +18,9 @@ use parser::print_dupe_error;
 use parser::print_sema_error;
 use parser::display_ast;
 use parser::parse_tc_file;
+
+#[cfg(test)]
+mod fuzzer;
 
 //////////////////////////////////////
 //        The Program Itself        //

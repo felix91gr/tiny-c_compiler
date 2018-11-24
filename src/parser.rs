@@ -728,7 +728,7 @@ pub fn print_sema_error(pest_error: Error<Rule>) {
 #[cfg(test)]
 mod accepts {
 
-  use super::super::*;
+  use parser::parse_tc_file;
 
   #[test]
   fn empty_statement() {
@@ -736,7 +736,8 @@ mod accepts {
   }
 
   mod basic {
-    use super::super::super::*;
+
+    use parser::parse_tc_file;
 
     #[test]
     fn _if() {
@@ -856,7 +857,7 @@ mod accepts {
   }
 
   mod scopes_like {
-    use super::super::super::*;
+    use parser::parse_tc_file;
     
     #[test]
     fn while_inc_i_by_i() {
@@ -951,7 +952,7 @@ mod accepts {
 #[cfg(test)]
 mod rejects {
 
-  use super::super::*;
+  use parser::parse_tc_file;
 
   #[test]
   #[should_panic]
@@ -1003,7 +1004,7 @@ mod rejects {
 
   mod badly_formed {
     
-    use super::super::super::*;
+    use parser::parse_tc_file;
 
     #[test]
     #[should_panic]
@@ -1020,7 +1021,7 @@ mod rejects {
 
   mod badly_spelled {
     
-    use super::super::super::*;
+    use parser::parse_tc_file;
 
     #[test]
     #[should_panic]

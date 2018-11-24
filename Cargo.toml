@@ -12,3 +12,13 @@ pest_derive = "2.0"
 
 # For command line argument parsing
 clap = {version = "2.32", features = ["yaml"]}
+
+[dev-dependencies]
+# For fuzzing of the parser
+synfuzz = "0.1.0"
+
+# For formatting of big numbers
+thousands = "0.1.2"
+
+# [patch.crates-io]
+# synfuzz = { path = '../synfuzz/synfuzz' }
