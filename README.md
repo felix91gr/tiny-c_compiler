@@ -41,6 +41,22 @@ To run the unit tests:
 cargo test
 ```
 
+There is a fuzzing test, but it's marked as `#ignore` because it takes a few minutes to run. In order to run it, do this:
+
+```bash
+cargo test --release -- --ignored --nocapture
+```
+
+The fuzzing test creates random, gramatically valid input, and feeds it into the parser, looking for potential panics. If the parser doesn't panic, then it knows how to handle all input it's given. We build up gramatically valid input, because we want to fuzz the AST building process (which I wrote), and not the parsing process itself (which I derived from the `Pest` library).
+
+The `--release` option makes it so that the test runs in an optimized build, and runs therefore as fast as it can go. The `--nocapture` option will ensure that we get a proper fuzzing report after the test is run.
+
+The fuzzer will currently run 5 million random examples. In order to change this number, go to line 292 on `fuzzer.rs`, and edit this variable:
+
+```rust
+let num_iterations = 5_000_000;
+```
+
 ## Syntax Highlighting
 
 You can have syntax highlighting for Tiny-C on your editor of choice (if, by choice, you mean VSCode or Sublime Text!). 

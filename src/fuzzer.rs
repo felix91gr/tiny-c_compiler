@@ -276,8 +276,8 @@ fn fuzz_parser() {
             ("scoped_statement".to_string(), 3),
             ("expr_statement".to_string(), 10),
             ("semicolon_statement".to_string(), 20),
-            ("function_usage_statement".to_string(), 50),
-            ("function_declaration_statement".to_string(), 50),
+            ("function_usage_statement".to_string(), 30),
+            ("function_declaration_statement".to_string(), 30),
             ]
         );
 
@@ -286,11 +286,6 @@ fn fuzz_parser() {
     let mut largest_seq = 0;
     let mut largest_input = Vec::new();
     let mut well_formed = 0;
-
-    // let mut shortest_bad_seq = 10000;
-    // let mut shortest_bad_input = Vec::new();
-    // let mut error_of_shortest_input = "".to_string();
-    // let lower_short_seq_bound = 50;
 
     let final_rule = rule("statement", recursive_rules.clone());
 
@@ -309,17 +304,7 @@ fn fuzz_parser() {
             largest_input = out.clone();
           }
         },
-        Err(_parse_error) => {
-
-          // let len = out.len();
-          // if len < shortest_bad_seq && len >= lower_short_seq_bound {
-          //   shortest_bad_seq = len;
-          //   shortest_bad_input = out.clone();
-          //   error_of_shortest_input = format!("{}", parse_error);
-          // }
-
-
-        }
+        Err(_) => {}
       };
     }
 
@@ -351,10 +336,4 @@ fn fuzz_parser() {
     println!("{}", border_line);
     println!("{}", &String::from_utf8_lossy(&largest_input));
     println!("{}", border_line);
-
-    // let shortest_bad_input = String::from_utf8_lossy(&shortest_bad_input);
-
-    // println!("  4) Shortest bad input: \n\n{}", shortest_bad_input);
-    // println!("  5) Its parse error: \n\n{}", error_of_shortest_input);
-
 }
