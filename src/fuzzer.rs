@@ -283,6 +283,7 @@ fn fuzz_parser() {
 
     register_rule(&recursive_rules, "statement", statement);
 
+
     let mut largest_seq = 0;
     let mut largest_input = Vec::new();
     let mut well_formed = 0;
@@ -290,6 +291,8 @@ fn fuzz_parser() {
     let final_rule = rule("statement", recursive_rules.clone());
 
     let num_iterations = 5_000_000;
+
+    println!("Fuzzing the parser with {} iterations", num_iterations.separate_with_commas());
 
     for _i in 0..num_iterations {
       let out = final_rule.generate();
@@ -306,7 +309,13 @@ fn fuzz_parser() {
         },
         Err(_) => {}
       };
+
+      let percentage_of_total = 100.0 * (_i as f32) / (num_iterations as f32);
+
+      print!("Status: {:.2}% Complete         \r", percentage_of_total);
     }
+
+    println!("Status: 100% Complete! ^u^          ");
 
     let correct_input_percentage : f32 = 100.0 * (well_formed as f32) / (num_iterations as f32); 
 
