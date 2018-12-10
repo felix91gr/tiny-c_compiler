@@ -744,6 +744,29 @@ pub fn print_sema_error(pest_error: Error<Rule>) {
 //        Compiling to LLVM         //
 //////////////////////////////////////
 
+static mut SCOPE_COUNTER: u64 = 0;
+
+fn get_fn_name_for_current_scope(s: &str) -> String {
+  unsafe {
+    get_fn_name_for_scope(s, SCOPE_COUNTER)
+  } 
+}
+fn get_fn_name_for_scope(s: &str, scope: u64) -> String {
+  format!("scope_{}_{}", scope, s)
+}
+
+fn current_scope() -> u64 {
+  unsafe {
+    SCOPE_COUNTER
+  }
+}
+
+fn enter_new_scope() {
+  unsafe {
+    SCOPE_COUNTER += 1;
+  }
+}
+
 // ======================================================================================
 // COMPILER =============================================================================
 // ======================================================================================
@@ -883,7 +906,12 @@ impl<'a, 'i> Compiler<'a, 'i> {
   }
 
   #[allow(unused_variables)]
-  fn compile_stmt(&self, local_vars: &HashMap<char, PointerValue>, stmt: &Statement, mother_func: &FunctionValue) -> Result<IntValue, &'static str> {
+  fn compile_stmt(&self, 
+    local_vars: &HashMap<char, PointerValue>, 
+    stmt: &Statement, 
+    mother_func: &FunctionValue, 
+    reachable_functions: &HashMap<String, String>, 
+    mother_scopes: &Vec<u64>) -> Result<IntValue, &'static str> {
 
     let context = &self.context;
     let module  = &self.module;
@@ -919,12 +947,12 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
         // Build THEN block
         builder.position_at_end(&then_bb);
-        self.compile_stmt(local_vars, if_true, mother_func)?;
+        self.compile_stmt(local_vars, if_true, mother_func, reachable_functions, mother_scopes)?;
         builder.build_unconditional_branch(&cont_bb);
 
         // Build ELSE block
         builder.position_at_end(&else_bb);
-        self.compile_stmt(local_vars, if_false, mother_func)?;
+        self.compile_stmt(local_vars, if_false, mother_func, reachable_functions, mother_scopes)?;
         builder.build_unconditional_branch(&cont_bb);
 
         // Emit MERGE block
@@ -947,7 +975,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
         // Build THEN block
         builder.position_at_end(&then_bb);
-        self.compile_stmt(local_vars, if_true, mother_func)?;
+        self.compile_stmt(local_vars, if_true, mother_func, reachable_functions, mother_scopes)?;
         builder.build_unconditional_branch(&cont_bb);
 
         // There is no ELSE block! :D
@@ -969,7 +997,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
         // Build DO block
 
         builder.position_at_end(&do_block);
-        self.compile_stmt(local_vars, action, mother_func)?;
+        self.compile_stmt(local_vars, action, mother_func, reachable_functions, mother_scopes)?;
         builder.build_unconditional_branch(&check_block);
 
         // Build WHILE block
@@ -1001,7 +1029,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
         // Build DO block
 
         builder.position_at_end(&repeating_block);
-        self.compile_stmt(local_vars, action, mother_func)?;
+        self.compile_stmt(local_vars, action, mother_func, reachable_functions, mother_scopes)?;
         builder.build_unconditional_branch(&check_block);
 
         builder.position_at_end(&cont_block);
@@ -1011,13 +1039,36 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
       // Scope(Vec<Statement<'i>>),
       InnerStatement::Scope(ref stmts) => {
+        
+        enter_new_scope();
+
+        let mut function_names_in_scope = reachable_functions.clone();
+
         for stmt in stmts {
-          self.compile_stmt(local_vars, stmt, mother_func)?;
+          if let InnerStatement::FnDeclarationStatement(ref s, _, _) = stmt.inner {
+            function_names_in_scope.insert(s.to_string(), get_fn_name_for_current_scope(s));
+          }
+        }
+
+        let this_scope = current_scope();
+
+        let new_scope_stack = {
+       
+          let mut res = mother_scopes.clone();
+
+          res.push(this_scope);
+
+          res
+        };
+
+        for stmt in stmts {
+          self.compile_stmt(local_vars, stmt, mother_func, &function_names_in_scope, &new_scope_stack)?;
         }
 
         Ok(self.make_void_value())
       },
 
+      // PrintStatement(Printable<'i>),
       InnerStatement::PrintStatement(ref printable) => {
 
         let i32_type = context.i32_type();
@@ -1068,25 +1119,89 @@ impl<'a, 'i> Compiler<'a, 'i> {
         }
       },
       
-      // I hope I can connect to the proper function to do this one
-      
-      // PrintStatement(Printable<'i>),
-
-      
-      // Extra Credits!
-
       // FnDeclarationStatement(String, Vec<Identifier<'i>>, Box<Statement<'i>>),
+      InnerStatement::FnDeclarationStatement(ref name, ref ids, ref body) => {
+        let save_point = mother_func.get_last_basic_block().unwrap();
+
+        let mut args = Vec::new();
+
+        for id in ids {
+          args.push(id.inner);
+        }
+
+        self.compile_fn(name, &args, body, reachable_functions, mother_scopes)?;
+
+        builder.position_at_end(&save_point);
+
+        Ok(self.make_void_value())
+      },
+
       // FnUsageStatement(String, Vec<Expression<'i>>),
+      InnerStatement::FnUsageStatement(ref name, ref exprs) => {
 
-      _ => {
-        unimplemented!()
-      }
+        let mut arg_values = Vec::new();
+
+        for expr in exprs {
+
+          let mut pointer_to_parameter = None;
+
+          if let InnerExpression::Value(ref v) = expr.inner {
+            if let InnerSum::Tm(ref t) = v.inner {
+              if let InnerTerm::Id(ref id) = t.inner {
+
+                let var_name = id.inner;
+
+                pointer_to_parameter = Some(*local_vars.get(&var_name).unwrap());
+              }
+            }
+          }
+
+          if let None = pointer_to_parameter {
+
+            let i32_type = context.i32_type();
+
+            /* Allocate the parameter.                 Parameters: (type, name) */
+            let inner_pointer = builder.build_alloca(i32_type, "");
+            
+            let this_expr_value = self.compile_expr(expr, local_vars)?;
+
+            /* Set its value.  Parameters: (pointer, value) */
+            builder.build_store(inner_pointer, this_expr_value);
+            
+            pointer_to_parameter = Some(inner_pointer);
+          }
+
+          let final_pointer_value = BasicValueEnum::PointerValue(pointer_to_parameter.unwrap());
+
+          arg_values.push(final_pointer_value);
+        }
+
+        let mut function_to_call : Option<FunctionValue> = None;
+
+        let mut available_scopes = mother_scopes.clone();
+
+        while available_scopes.len() > 0 {
+
+          let maybe_this_scope = available_scopes.pop().unwrap();
+
+          let function_name = get_fn_name_for_scope(name, maybe_this_scope);
+        
+          function_to_call = module.get_function(&function_name);
+        }
+
+        if let Some(function_call_value) = function_to_call {
+          builder.build_call(function_call_value, &arg_values, "");
+          Ok(self.make_void_value())        
+        }
+        else {
+          panic!("Called function name does not exist! \n Culprit:{:?}", name);
+        }
+      },      
     }
-
   }
 
   // TODO: add the scope symbols this function has access to!
-  fn compile_fn(&self, name: &str, args: &Vec<char>, body: &Statement) -> Result<FunctionValue, &'static str> {
+  fn compile_fn(&self, name: &str, args: &Vec<char>, body: &Statement, reachable_functions: &HashMap<String, String>, mother_scopes: &Vec<u64>) -> Result<FunctionValue, &'static str> {
 
     let context = &self.context;
     let module  = &self.module;
@@ -1110,7 +1225,10 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
     let fn_type = void_type.fn_type(&arg_types[..], false);
 
-    let function = module.add_function(&name.to_string(), fn_type, None);
+    let this_function_s_name = reachable_functions.get(&name.to_string())
+                                .expect("Function symbol is not registered in its scope!");
+
+    let function = module.add_function(this_function_s_name, fn_type, None);
     let entry = context.append_basic_block(&function, "entry");
 
     builder.position_at_end(&entry);      
@@ -1177,7 +1295,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
       Stage 3: compile the function's body
     */
 
-    self.compile_stmt(&this_fn_vars, body, &function)?;
+    self.compile_stmt(&this_fn_vars, body, &function, reachable_functions, mother_scopes)?;
 
     /*
       Stage 4: store the values in local variables back into the pointers given to us by the function caller
@@ -1222,9 +1340,6 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
       println!("{:#?}", function);
 
-      unsafe {
-          function.delete();
-      }
       Err("Invalid generated function.")
     }
   }
@@ -1260,7 +1375,13 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
     let args = Vec::new();
 
-    self.compile_fn(name, &args, body)
+    let mut available_functions_in_main = HashMap::new();
+
+    available_functions_in_main.insert(name.to_string(), name.to_string());    
+
+    let scopes_in_main = Vec::new();
+
+    self.compile_fn(name, &args, body, &available_functions_in_main, &scopes_in_main)
   }
 
   pub fn compile(context: &'a Context, builder: &'a Builder, pass_manager: &'a PassManager, module: &'a Module, statement: &Statement) -> Result<FunctionValue, &'static str> {

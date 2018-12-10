@@ -182,8 +182,6 @@ fn main() {
 
                           match module.verify() {
                             Ok(_) => {
-                              vprintln!("Compiled module:");
-
                               vprintln!("Module's IR: \n{}", module.print_to_string().to_string());
 
                               if let Some(output_file) = matches.value_of("OUTPUT") {
@@ -231,6 +229,8 @@ fn main() {
                         },
                         Err(e) => {
                           println!("Error when trying to compile to LLVM! \n{:?}", e);
+
+                          vprintln!("Here's the Module's IR: \n{}", module.print_to_string().to_string());
                         },
                       }
                     }

@@ -1,0 +1,15 @@
+{
+	fn fibo(a) {
+
+		if (a < 2)
+			a = 1;
+		else {
+			b = a - 1;
+			c = a - 2;
+
+//			call fibo(b);
+	//		call fibo(c);
+			a = b + c;
+		}
+	}
+}

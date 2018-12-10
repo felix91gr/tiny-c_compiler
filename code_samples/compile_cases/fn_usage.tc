@@ -1,0 +1,45 @@
+{
+	fn fibo(a) {
+		if (a < 2)
+			a = 1;
+		else {
+			b = a - 1;
+			c = a - 2;
+
+			call fibo(b);
+			call fibo(c);
+			a = b + c;
+		}
+	};
+
+	fn fibofast(a) {
+
+		b = 1;
+		c = 1;
+
+		while(m <= a) {
+			n = c + b;
+			c = b;
+			b = n;
+
+			m = m + 1;
+		}
+
+		a = b;
+	}
+
+	while(b < 10000) {
+
+		print("Fibo of...");
+		print(b);
+
+		print("Equals...");
+		c = b;
+		call fibofast(c);
+		print(c);
+
+		print("");
+
+		b = b + 1;
+	}
+}
