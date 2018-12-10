@@ -3,3 +3,5 @@
 **/*.rs.bk
 
 cli_example.yml
+
+*.o

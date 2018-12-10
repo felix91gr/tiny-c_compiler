@@ -7,6 +7,9 @@ args:
         help: Sets the input file to compile
         required: true
         index: 2
+    - OUTPUT:
+        help: Create a binary output file, ready for linking
+        index: 3
     - mode:
         help: Level of parsing
         required: true
@@ -24,3 +27,7 @@ args:
         short: o
         multiple: false
         help: Optimize generated LLVM IR
+    - run:
+        short: r
+        multiple: false
+        help: Run generated program using JIT compilation

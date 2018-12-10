@@ -6,9 +6,11 @@ use inkwell::types::BasicTypeEnum;
 use inkwell::AddressSpace;
 use inkwell::values::IntValue;
 use inkwell::values::FloatValue;
+use inkwell::module::Linkage;
 use inkwell::IntPredicate;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;
+use inkwell::values::BasicValueEnum;
 use std::collections::HashMap;
 use inkwell::module::Module;
 use inkwell::passes::PassManager;
@@ -1014,6 +1016,56 @@ impl<'a, 'i> Compiler<'a, 'i> {
         }
 
         Ok(self.make_void_value())
+      },
+
+      InnerStatement::PrintStatement(ref printable) => {
+
+        let i32_type = context.i32_type();
+
+        let printf = match module.get_function("printf") {
+
+          Some(f) => f,
+          None => {
+            let str_type = context.i8_type().ptr_type(AddressSpace::Generic);
+            let printf_type = i32_type.fn_type(&[str_type.into()], true);
+            module.add_function("printf", printf_type, Some(Linkage::External))
+          }
+        };
+
+        match printable.inner {
+          InnerPrintable::Str(ref s) => {
+            
+            let static_str = builder.build_global_string_ptr(&format!("{}\n", s), "static_s");
+
+            let static_str = BasicValueEnum::PointerValue(static_str.as_pointer_value());
+
+            let params_for_printf = vec![static_str];
+
+            let params_for_printf = &params_for_printf[..];
+
+            builder.build_call(printf, params_for_printf, "");
+          
+            Ok(self.make_void_value())
+          },
+          InnerPrintable::Expr(ref e) => {
+
+            let format = builder.build_global_string_ptr("%u\n", "format_numbers");
+
+            let format = BasicValueEnum::PointerValue(format.as_pointer_value());
+    
+            let value_of_expr = self.compile_expr(e, local_vars)?;
+
+            let value_of_expr = BasicValueEnum::IntValue(value_of_expr);
+
+            let params_for_printf = vec![format, value_of_expr];
+
+            let params_for_printf = &params_for_printf[..];
+
+            builder.build_call(printf, params_for_printf, "");
+
+            Ok(self.make_void_value())
+          },
+        }
       },
       
       // I hope I can connect to the proper function to do this one

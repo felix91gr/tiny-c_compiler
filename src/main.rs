@@ -22,17 +22,15 @@ use parser::parse_tc_file;
 #[cfg(test)]
 mod fuzzer;
 
+use std::path::Path;
+
 extern crate inkwell;
 
-use inkwell::basic_block::BasicBlock;
-use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::Module;
 use inkwell::passes::PassManager;
-use inkwell::targets::{InitializationConfig, Target};
-use inkwell::types::BasicTypeEnum;
-use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, PointerValue};
-use inkwell::{OptimizationLevel, FloatPredicate};
+use inkwell::targets::{InitializationConfig, Target, TargetMachine, RelocMode, CodeModel, FileType};
+use inkwell::OptimizationLevel;
+
 use parser::Compiler;
 //////////////////////////////////////
 //        The Program Itself        //
@@ -180,7 +178,56 @@ fn main() {
                       match compile_result {
                         Ok(res) => {
                           vprintln!("Compilation worked! Compiled into LLVM IR:");
-                          println!("{}", res.print_to_string().to_string());
+                          vprintln!("Main function's IR: \n{}", res.print_to_string().to_string());
+
+                          match module.verify() {
+                            Ok(_) => {
+                              vprintln!("Compiled module:");
+
+                              vprintln!("Module's IR: \n{}", module.print_to_string().to_string());
+
+                              if let Some(output_file) = matches.value_of("OUTPUT") {
+
+                                let triple = TargetMachine::get_default_triple().to_string();
+                                let target = Target::from_triple(&triple).unwrap();
+                                let target_machine = target.create_target_machine(
+                                  &triple, 
+                                  "generic", 
+                                  "", 
+                                  OptimizationLevel::Default, 
+                                  RelocMode::Default, 
+                                  CodeModel::Default).unwrap();
+                                
+                                let path = Path::new(output_file);
+                                println!("Write LLVM IR to {}", output_file);
+
+                                let _result = target_machine.write_to_file(&module, FileType::Object, &path);
+
+                              }
+                              
+                              if matches.is_present("run") {
+                              
+                                vprintln!("Executing with JIT compilation!");
+
+                                let barrier_of_execution = ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
+
+                                println!("{}", barrier_of_execution);
+
+                                let ee = module.create_jit_execution_engine(OptimizationLevel::Default).unwrap();
+
+                                unsafe {
+                                  ee.run_function(&res, &vec![]);
+                                }
+
+                                println!("{}", barrier_of_execution);
+                              }
+                            },
+                            Err(e) => {
+                              println!("However, the Module is not correct!");
+
+                              println!("{}", e);
+                            }
+                          }
                         },
                         Err(e) => {
                           println!("Error when trying to compile to LLVM! \n{:?}", e);
