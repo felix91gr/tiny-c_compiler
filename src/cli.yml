@@ -15,7 +15,12 @@ args:
             - parse
             - add-symbols
             - semantic-analysis
+            - compile
     - verbose:
         short: v
         multiple: true
         help: Sets the level of verbosity
+    - optimize:
+        short: o
+        multiple: false
+        help: Optimize generated LLVM IR

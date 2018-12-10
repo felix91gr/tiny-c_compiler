@@ -22,6 +22,18 @@ use parser::parse_tc_file;
 #[cfg(test)]
 mod fuzzer;
 
+extern crate inkwell;
+
+use inkwell::basic_block::BasicBlock;
+use inkwell::builder::Builder;
+use inkwell::context::Context;
+use inkwell::module::Module;
+use inkwell::passes::PassManager;
+use inkwell::targets::{InitializationConfig, Target};
+use inkwell::types::BasicTypeEnum;
+use inkwell::values::{BasicValueEnum, FloatValue, FunctionValue, PointerValue};
+use inkwell::{OptimizationLevel, FloatPredicate};
+use parser::Compiler;
 //////////////////////////////////////
 //        The Program Itself        //
 //////////////////////////////////////
@@ -125,9 +137,73 @@ fn main() {
             Err(e) => print_parse_error(e),
           }
         },
+
+        "compile" => {
+          vprintln!("Running Parser + Symbol propagation + Symbol reachability analysis + Compilation!");
+
+          let parse_result = parse_tc_file(&unparsed_file);
+
+          match parse_result {
+            
+            Ok(mut ast) => {
+              match ast.enrich_interior_scope_with_symbols() {
+            
+                Ok(_) => {
+                  match ast.check_reachability_of_used_symbols() {
+
+                    Ok(_) => {
+
+                      Target::initialize_native(&InitializationConfig::default()).expect("Failed to initialize native target.");
+
+                      let context = Context::create();
+                      let module = context.create_module(input_file);
+                      let builder = context.create_builder();
+
+                      // Create FPM
+                      let fpm = PassManager::create_for_function(&module);
+
+                      if matches.is_present("optimize") {
+                        fpm.add_instruction_combining_pass();
+                        fpm.add_reassociate_pass();
+                        fpm.add_gvn_pass();
+                        fpm.add_cfg_simplification_pass();
+                        fpm.add_basic_alias_analysis_pass();
+                        fpm.add_promote_memory_to_register_pass();
+                        fpm.add_instruction_combining_pass();
+                        fpm.add_reassociate_pass();
+                      }
+
+                      fpm.initialize();
+
+                      let compile_result = Compiler::compile(&context, &builder, &fpm, &module, &ast);
+
+                      match compile_result {
+                        Ok(res) => {
+                          vprintln!("Compilation worked! Compiled into LLVM IR:");
+                          println!("{}", res.print_to_string().to_string());
+                        },
+                        Err(e) => {
+                          println!("Error when trying to compile to LLVM! \n{:?}", e);
+                        },
+                      }
+                    }
+                    Err(e) => {
+                      print_sema_error(e)
+                    }
+                  }
+                }
+                Err(e) => {
+                  print_dupe_error(e);
+                }
+              }
+            },
+            Err(e) => print_parse_error(e),
+          }
+        },
+
         _ => {
           println!("(Compiler says:) I need to be updated, because there is a compilation mode that is not being handled!");
-          unreachable!()
+          unimplemented!()
         },
       }
     }

@@ -1,4 +1,21 @@
 //////////////////////////////////////
+//         Usage of Inkwell         //
+//////////////////////////////////////
+
+use inkwell::types::BasicTypeEnum;
+use inkwell::AddressSpace;
+use inkwell::values::IntValue;
+use inkwell::values::FloatValue;
+use inkwell::IntPredicate;
+use inkwell::values::FunctionValue;
+use inkwell::values::PointerValue;
+use std::collections::HashMap;
+use inkwell::module::Module;
+use inkwell::passes::PassManager;
+use inkwell::builder::Builder;
+use inkwell::context::Context;
+
+//////////////////////////////////////
 //          Usage of Pest           //
 //////////////////////////////////////
 
@@ -719,6 +736,525 @@ pub fn print_dupe_error(pest_error: Error<Rule>) {
 pub fn print_sema_error(pest_error: Error<Rule>) {
   eprintln!("File fails to pass semantic analysis!");
   print_error(pest_error);
+}
+
+//////////////////////////////////////
+//        Compiling to LLVM         //
+//////////////////////////////////////
+
+// ======================================================================================
+// COMPILER =============================================================================
+// ======================================================================================
+
+#[allow(dead_code)]
+pub struct Compiler<'a, 'i : 'a> {
+    pub context: &'a Context,
+    pub builder: &'a Builder,
+    pub fpm: &'a PassManager,
+    pub module: &'a Module,
+    pub statement: &'a Statement<'i>,
+
+    variables: HashMap<String, PointerValue>,
+    fn_value_opt: Option<FunctionValue>
+}
+
+#[allow(dead_code)]
+impl<'a, 'i> Compiler<'a, 'i> {
+
+  fn make_const_int(&self, value: u32) -> IntValue {
+    self.context.i32_type().const_int(value as u64, false)
+  }
+
+  fn make_void_value(&self) -> IntValue {
+    self.context.i32_type().const_null()
+  }
+
+  // Done!
+  fn compile_term(&self, term: &Term, local_vars: &HashMap<char, PointerValue>) -> Result<IntValue, &'static str> {
+
+    match (*term).inner {
+      // Int(u32),
+      InnerTerm::Int(value) => Ok(self.make_const_int(value)),
+
+      // Id(Identifier<'i>),
+      InnerTerm::Id(ref id) => {
+        let var_name = id.inner;
+
+        let ptr_to_local_var = local_vars.get(&var_name).unwrap();
+        let loaded_local_variable = self.builder.build_load(*ptr_to_local_var, &format!("deref_{}", var_name));
+
+        Ok(loaded_local_variable.into_int_value())
+      },
+
+      // Expr(Box<Expression<'i>>)
+      InnerTerm::Expr(ref expr) => self.compile_expr(expr, local_vars),
+    }
+  }
+
+  // Done!
+  fn compile_sum(&self, sum: &Sum, local_vars: &HashMap<char, PointerValue>) -> Result<IntValue, &'static str> {
+  
+    match (*sum).inner {
+
+      // Tm(Term<'i>),
+      InnerSum::Tm(ref term) => self.compile_term(term, local_vars),
+
+      // Summation(Term<'i>, Box<Sum<'i>>),
+      InnerSum::Summation(ref term, ref sum) => {
+
+        let lhs = self.compile_term(term, local_vars)?;
+
+        let rhs = self.compile_sum(sum, local_vars)?;
+
+        Ok(self.builder.build_int_add(lhs, rhs, "tmpadd"))
+
+      },
+
+      // Substraction(Term<'i>, Box<Sum<'i>>)
+      InnerSum::Substraction(ref term, ref sum) => {
+
+        let lhs = self.compile_term(term, local_vars)?;
+
+        let rhs = self.compile_sum(sum, local_vars)?;
+
+        Ok(self.builder.build_int_sub(lhs, rhs, "tmpsub"))
+
+      },
+
+    }
+  }
+
+  // Done!
+  fn compile_expr(&self, expr: &Expression, local_vars: &HashMap<char, PointerValue>) -> Result<IntValue, &'static str> {
+
+    match (*expr).inner {
+
+      // Value(Sum<'i>),
+      InnerExpression::Value(ref sum) => self.compile_sum(sum, local_vars),
+
+      // Parenthesis(Box<Expression<'i>>),
+      InnerExpression::Parenthesis(ref inner_expr) => self.compile_expr(inner_expr, local_vars),
+
+      // Comparison(ComparisonKind, Sum<'i>, Sum<'i>),
+      InnerExpression::Comparison(ref comp_kind, ref left_sum, ref right_sum) => {
+
+        /*
+          VERY IMPORTANT
+
+          1 = TRUE
+          0 = FALSE
+
+          (ANYTHING != 0) = TRUE
+        */
+
+        let lhs = self.compile_sum(left_sum, local_vars)?;
+        let rhs = self.compile_sum(right_sum, local_vars)?;
+
+        let predicate = match comp_kind {
+          ComparisonKind::Equal => IntPredicate::EQ,
+          ComparisonKind::LessThanOrEqual => IntPredicate::ULE,
+          ComparisonKind::LessThan => IntPredicate::ULT,
+          ComparisonKind::GreaterThan => IntPredicate::UGT,
+          ComparisonKind::GreaterThanOrEqual => IntPredicate::UGE,
+        };
+
+        let comparison = self.builder.build_int_compare(predicate, lhs, rhs, "comp");
+
+        Ok(comparison)
+      }
+
+      // Assignment(char, Box<Expression<'i>>),
+      InnerExpression::Assignment(var_name, ref rhs_expr) => {
+
+        // A pointer to the local variable to be assigned the rhs value
+        let ptr_to_local_var = local_vars.get(&var_name).unwrap();
+        
+        // The value to be assigned to this variable
+        let assigned_value = self.compile_expr(rhs_expr, local_vars)?;
+
+        self.builder.build_store(*ptr_to_local_var, assigned_value);
+
+        // We return the rhs of the assignment, like in C.
+        Ok(assigned_value)
+      },
+    }
+  }
+
+  #[allow(unused_variables)]
+  fn compile_stmt(&self, local_vars: &HashMap<char, PointerValue>, stmt: &Statement, mother_func: &FunctionValue) -> Result<IntValue, &'static str> {
+
+    let context = &self.context;
+    let module  = &self.module;
+    let builder = &self.builder;
+
+    let i32_type = context.i32_type();
+    let i32_ptr_type = i32_type.ptr_type(AddressSpace::Generic);
+
+    match (*stmt).inner {
+      // Empty,
+      InnerStatement::Empty => Ok(self.make_void_value()),
+
+      // Expr(Expression<'i>),
+      InnerStatement::Expr(ref expr) => { 
+        match self.compile_expr(expr, local_vars) {
+          Ok(_) => Ok(self.make_void_value()),
+          Err(e) => Err(e),
+        }
+      },
+
+      // IfElse(Expression<'i>, Box<Statement<'i>>, Box<Statement<'i>>),
+      InnerStatement::IfElse(ref expr, ref if_true, ref if_false) => {
+
+        // Condition for jumping
+        // If condition != 0, then condition == true
+        let inner_expr = self.compile_expr(expr, local_vars)?;
+
+        let then_bb = context.append_basic_block(&mother_func, "then");
+        let else_bb = context.append_basic_block(&mother_func, "else");
+        let cont_bb = context.append_basic_block(&mother_func, "ifcont");
+
+        builder.build_conditional_branch(inner_expr, &then_bb, &else_bb);
+
+        // Build THEN block
+        builder.position_at_end(&then_bb);
+        self.compile_stmt(local_vars, if_true, mother_func)?;
+        builder.build_unconditional_branch(&cont_bb);
+
+        // Build ELSE block
+        builder.position_at_end(&else_bb);
+        self.compile_stmt(local_vars, if_false, mother_func)?;
+        builder.build_unconditional_branch(&cont_bb);
+
+        // Emit MERGE block
+        builder.position_at_end(&cont_bb);
+
+        Ok(self.make_void_value())
+      },
+
+      // If(Expression<'i>, Box<Statement<'i>>),
+      InnerStatement::If(ref expr, ref if_true) => {
+
+        // Condition for jumping
+        // If condition != 0, then condition == true
+        let inner_expr = self.compile_expr(expr, local_vars)?;
+
+        let then_bb = context.append_basic_block(&mother_func, "then");
+        let cont_bb = context.append_basic_block(&mother_func, "ifcont");
+
+        builder.build_conditional_branch(inner_expr, &then_bb, &cont_bb);
+
+        // Build THEN block
+        builder.position_at_end(&then_bb);
+        self.compile_stmt(local_vars, if_true, mother_func)?;
+        builder.build_unconditional_branch(&cont_bb);
+
+        // There is no ELSE block! :D
+
+        builder.position_at_end(&cont_bb);
+
+        Ok(self.make_void_value())
+      },
+      
+      // DoWhile(Box<Statement<'i>>, Expression<'i>),
+      InnerStatement::DoWhile(ref action, ref repeat_condition) => {
+
+        let do_block = context.append_basic_block(&mother_func, "do_while_do");
+        let check_block = context.append_basic_block(&mother_func, "do_while_check");
+        let cont_block = context.append_basic_block(&mother_func, "do_while_cont");
+
+        builder.build_unconditional_branch(&do_block);
+
+        // Build DO block
+
+        builder.position_at_end(&do_block);
+        self.compile_stmt(local_vars, action, mother_func)?;
+        builder.build_unconditional_branch(&check_block);
+
+        // Build WHILE block
+
+        builder.position_at_end(&check_block);
+        let check_condition = self.compile_expr(repeat_condition, local_vars)?;
+        builder.build_conditional_branch(check_condition, &do_block, &cont_block);
+
+        builder.position_at_end(&cont_block);
+
+        Ok(self.make_void_value())
+      },
+
+      // While(Expression<'i>, Box<Statement<'i>>),
+      InnerStatement::While(ref repeat_condition, ref action) => {
+
+        let check_block = context.append_basic_block(&mother_func, "while_check");
+        let repeating_block = context.append_basic_block(&mother_func, "while_do");
+        let cont_block = context.append_basic_block(&mother_func, "while_cont");
+
+        builder.build_unconditional_branch(&check_block);
+
+        // Build CHECK block
+
+        builder.position_at_end(&check_block);
+        let check_condition = self.compile_expr(repeat_condition, local_vars)?;
+        builder.build_conditional_branch(check_condition, &repeating_block, &cont_block);
+
+        // Build DO block
+
+        builder.position_at_end(&repeating_block);
+        self.compile_stmt(local_vars, action, mother_func)?;
+        builder.build_unconditional_branch(&check_block);
+
+        builder.position_at_end(&cont_block);
+
+        Ok(self.make_void_value())
+      },
+
+      // Scope(Vec<Statement<'i>>),
+      InnerStatement::Scope(ref stmts) => {
+        for stmt in stmts {
+          self.compile_stmt(local_vars, stmt, mother_func)?;
+        }
+
+        Ok(self.make_void_value())
+      },
+      
+      // I hope I can connect to the proper function to do this one
+      
+      // PrintStatement(Printable<'i>),
+
+      
+      // Extra Credits!
+
+      // FnDeclarationStatement(String, Vec<Identifier<'i>>, Box<Statement<'i>>),
+      // FnUsageStatement(String, Vec<Expression<'i>>),
+
+      _ => {
+        unimplemented!()
+      }
+    }
+
+  }
+
+  // TODO: add the scope symbols this function has access to!
+  fn compile_fn(&self, name: &str, args: &Vec<char>, body: &Statement) -> Result<FunctionValue, &'static str> {
+
+    let context = &self.context;
+    let module  = &self.module;
+    let builder = &self.builder;
+
+    let i32_type = context.i32_type();
+    let i32_ptr_type = i32_type.ptr_type(AddressSpace::Generic);
+
+    let void_type = context.void_type();
+
+    let arg_types = {
+
+      let mut res = Vec::new();
+
+      for _ in args.iter() {
+        res.push(i32_ptr_type.into());
+      }
+
+      res
+    };
+
+    let fn_type = void_type.fn_type(&arg_types[..], false);
+
+    let function = module.add_function(&name.to_string(), fn_type, None);
+    let entry = context.append_basic_block(&function, "entry");
+
+    builder.position_at_end(&entry);      
+
+    /*  Current plan:
+
+        - Setup: 1, 2.
+        - Play: 3.
+        - Cleanup: 4, 5.
+        - LLVM's mandatory step: 6.
+
+        1) Allocate space for the 26 variables, set it to 0.
+
+        2) Load the values from the pointers into their corresponding variables.
+
+        3) Compile the body right after (and inside) this function's "entry" block.
+
+        4) Store the values inside the local variables into the pointers.
+
+        5) Return void.
+
+        6) Verify the compiled function, and run the LLVM Pass Manager (optimizer) over it.
+    */
+
+    /*
+      Stage 1: allocate space for the 26 local variables, and Zero them
+    */
+
+    let mut this_fn_vars : HashMap<char, PointerValue> = HashMap::new();
+
+    let zero_value = i32_type.const_int(0, false);
+
+    for var_name in Compiler::valid_variable_names() {
+      /* Allocate the variable.                 Parameters: (type, name) */
+      let ptr_to_variable = builder.build_alloca(i32_type, &var_name.to_string());
+      /* Zero its value.  Parameters: (pointer, value) */
+      builder.build_store(ptr_to_variable, zero_value);
+      /* Store it into the dictionary of variables */
+      this_fn_vars.insert(var_name, ptr_to_variable);
+      builder.position_at_end(&entry);
+    }
+
+    /*
+      Stage 2: load the arguments to the function into the local variables
+    */
+
+    for (idx, parameter_pointer) in function.get_params().iter().enumerate() {
+      // We get the name of the idx_th argument to the function
+      let var_name = args[idx];
+      // We look up the pointer to our local variable for that function
+      let ptr_to_local_var = this_fn_vars.get(&var_name).unwrap();
+
+      let parameter_pointer = parameter_pointer.as_pointer_value();
+
+      // We load it into a local IntValue
+      let loaded_parameter_value = builder.build_load(*parameter_pointer, &format!("deref_{}", var_name));
+
+      // We finally store that IntValue into our local variable :)
+      builder.build_store(*ptr_to_local_var, loaded_parameter_value);
+      builder.position_at_end(&entry);
+    } 
+
+    /*
+      Stage 3: compile the function's body
+    */
+
+    self.compile_stmt(&this_fn_vars, body, &function)?;
+
+    /*
+      Stage 4: store the values in local variables back into the pointers given to us by the function caller
+    */
+
+    let exit = function.get_last_basic_block().unwrap();
+    
+    builder.position_at_end(&exit);
+
+    for (idx, parameter_pointer) in function.get_params().iter().enumerate() {
+      // We get the name of the idx_th argument to the function
+      let var_name = args[idx];
+      // We look up the pointer to our local variable for that function
+      let ptr_to_local_var = this_fn_vars.get(&var_name).unwrap();
+
+      let parameter_pointer = parameter_pointer.as_pointer_value();
+
+      // We load our local variable into a local IntValue
+      let loaded_parameter_value = builder.build_load(*ptr_to_local_var, &format!("deref_back_to_arg_{}", var_name));
+
+      // We finally store that IntValue into its corresponding outbound pointer :)
+      builder.build_store(*parameter_pointer, loaded_parameter_value);
+      builder.position_at_end(&exit);
+    } 
+
+    /*
+      Stage 5: return.
+    */
+
+    // This returns void.
+    builder.build_return(None);
+
+    /*
+      Stage 6: verification and optimization
+    */
+    if function.verify(true) {
+      self.fpm.run_on_function(&function);
+
+      Ok(function)
+    } 
+    else {
+
+      println!("{:#?}", function);
+
+      unsafe {
+          function.delete();
+      }
+      Err("Invalid generated function.")
+    }
+  }
+  
+  fn compile_fn_prototype(&self, name: &str, args: &Vec<char>) -> Result<FunctionValue, &'static str> {
+    // Our functions have no return value.
+    let ret_type = self.context.void_type();
+
+    // i64 because we expect to be using pointers here.
+    let args_types = std::iter::repeat(self.context.i64_type())
+      .take(args.len())
+      .map(|f| f.into())
+      .collect::<Vec<BasicTypeEnum>>();
+
+    let args_types = args_types.as_slice();
+
+    let fn_type = ret_type.fn_type(args_types, false);
+
+    let fn_val = self.module.add_function(&name.to_string(), fn_type, None);
+
+    // set arguments names
+    for (i, arg) in fn_val.get_param_iter().enumerate() {
+      arg.into_pointer_value().set_name(&args[i].to_string());
+    }
+
+    // finally return built prototype
+    Ok(fn_val)
+  }
+
+  fn compile_main(&self, body: &Statement) -> Result<FunctionValue, &'static str> {
+
+    let name = "main";
+
+    let args = Vec::new();
+
+    self.compile_fn(name, &args, body)
+  }
+
+  pub fn compile(context: &'a Context, builder: &'a Builder, pass_manager: &'a PassManager, module: &'a Module, statement: &Statement) -> Result<FunctionValue, &'static str> {
+    let compiler = Compiler {
+        context: context,
+        builder: builder,
+        fpm: pass_manager,
+        module: module,
+        statement: statement,
+        fn_value_opt: None,
+        variables: HashMap::new()
+    };
+
+    compiler.compile_main(statement)
+  }
+
+  fn valid_variable_names() -> Vec<char> {
+    vec![
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'f',
+      'g',
+      'h',
+      'i',
+      'j',
+      'k',
+      'l',
+      'm',
+      'n',
+      'o',
+      'p',
+      'q',
+      'r',
+      's',
+      't',
+      'u',
+      'v',
+      'w',
+      'x',
+      'y',
+      'z']
+  }
+
 }
 
 //////////////////////////////////////
