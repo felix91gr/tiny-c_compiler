@@ -160,7 +160,7 @@ print_statement = { "print" ~ "(" ~ printable ~ ")" ~ ";" }
 //  considered statements, and have therefore no value they
 //  can be evaluated to.
 
-function_name = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+function_name = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* ~ ("_" ~ ASCII_ALPHA ~ ASCII_ALPHANUMERIC*)* }
 
 id_parameter_list = { id ~ (", " ~ id)* }
 

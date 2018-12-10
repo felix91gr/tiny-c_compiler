@@ -12,7 +12,7 @@
 		}
 	};
 
-	fn fibofast(a) {
+	fn fibo_fast(a) {
 
 		b = 1;
 		c = 1;
@@ -35,7 +35,7 @@
 
 		print("Equals...");
 		c = b;
-		call fibofast(c);
+		call fibo_fast(c);
 		print(c);
 
 		print("");
