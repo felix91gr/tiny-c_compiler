@@ -7,6 +7,9 @@ extern crate pest_derive;
 extern crate synfuzz;
 
 #[cfg(test)]
+extern crate time;
+
+#[cfg(test)]
 extern crate thousands;
 
 mod settings;
@@ -214,7 +217,7 @@ fn main() {
                                 let ee = module.create_jit_execution_engine(OptimizationLevel::Default).unwrap();
 
                                 unsafe {
-                                  ee.run_function(&res, &vec![]);
+                                  ee.run_function(&res, &[]);
                                 }
 
                                 println!("{}", barrier_of_execution);

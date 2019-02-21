@@ -19,6 +19,8 @@ use synfuzz::Generator;
 
 use thousands::Separable;
 
+use time::{Duration, PreciseTime};
+
 fn ascii_alpha() -> impl Generator {
     choice!(char_range('a', 'z'), char_range('A', 'Z'))
 }
@@ -294,8 +296,16 @@ fn fuzz_parser() {
 
     println!("Fuzzing the parser with {} iterations", num_iterations.separate_with_commas());
 
+    let mut time_generating = Duration::zero();
+    let mut time_parsing = Duration::zero();
+
     for _i in 0..num_iterations {
+
+      let started_generating = PreciseTime::now();
+
       let out = final_rule.generate();
+
+      let started_parsing = PreciseTime::now();
 
       match parse_tc_file(&String::from_utf8_lossy(&out)) {
         Ok(_) => {
@@ -309,6 +319,11 @@ fn fuzz_parser() {
         },
         Err(_) => {}
       };
+
+      let done_parsing = PreciseTime::now();
+
+      time_generating = time_generating + started_generating.to(started_parsing);
+      time_parsing = time_parsing + started_parsing.to(done_parsing);
 
       let percentage_of_total = 100.0 * (_i as f32) / (num_iterations as f32);
 
@@ -345,4 +360,16 @@ fn fuzz_parser() {
     println!("{}", border_line);
     println!("{}", &String::from_utf8_lossy(&largest_input));
     println!("{}", border_line);
+
+    let ms_generating = time_generating.num_milliseconds() % 1000;
+    let s_generating = time_generating.num_seconds() % 60;
+    let m_generating = time_generating.num_minutes();
+
+    println!("  4) Time spent generating input: {:02}:{:02}.{}", m_generating, s_generating, ms_generating);
+
+    let ms_parsing = time_parsing.num_milliseconds() % 1000;
+    let s_parsing = time_parsing.num_seconds() % 60;
+    let m_parsing = time_parsing.num_minutes();
+    println!("  5) Time spent parsing input: {:02}:{:02}.{}", m_parsing, s_parsing, ms_parsing);
+
 }

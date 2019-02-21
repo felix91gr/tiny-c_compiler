@@ -14,7 +14,7 @@ pest_derive = "2.0"
 clap = {version = "2.32", features = ["yaml"]}
 
 # For compiling to LLVM IR and Machine Code
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm6-0" }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "llvm7-0" }
 
 [dev-dependencies]
 # For fuzzing of the parser
@@ -22,6 +22,9 @@ synfuzz = "0.1.0"
 
 # For formatting of big numbers
 thousands = "0.1.2"
+
+# For timing of fuzzer vs timing of parser
+time = "0.1"
 
 # [patch.crates-io]
 # synfuzz = { path = '../synfuzz/synfuzz' }

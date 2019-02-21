@@ -5,7 +5,6 @@
 use inkwell::types::BasicTypeEnum;
 use inkwell::AddressSpace;
 use inkwell::values::IntValue;
-use inkwell::values::FloatValue;
 use inkwell::module::Linkage;
 use inkwell::IntPredicate;
 use inkwell::values::FunctionValue;
@@ -220,15 +219,12 @@ impl<'i> Statement<'i> {
   }
 
   fn get_used_symbols(&self) -> HashSet<String> {
-    
+
     let mut used_symbols = HashSet::new();
 
-    match &self.inner {
-      InnerStatement::FnUsageStatement(s, exprs) => {
-        let symbol = format!("{}({})", s, exprs.len());
-        used_symbols.insert(symbol);
-      },
-      _ => {},
+    if let InnerStatement::FnUsageStatement(s, exprs) = &self.inner {
+      let symbol = format!("{}({})", s, exprs.len());
+      used_symbols.insert(symbol);
     }
 
     used_symbols
@@ -787,7 +783,7 @@ pub struct Compiler<'a, 'i : 'a> {
 impl<'a, 'i> Compiler<'a, 'i> {
 
   fn make_const_int(&self, value: u32) -> IntValue {
-    self.context.i32_type().const_int(value as u64, false)
+    self.context.i32_type().const_int(u64::from(value), false)
   }
 
   fn make_void_value(&self) -> IntValue {
@@ -909,9 +905,9 @@ impl<'a, 'i> Compiler<'a, 'i> {
   fn compile_stmt(&self, 
     local_vars: &HashMap<char, PointerValue>, 
     stmt: &Statement, 
-    mother_func: &FunctionValue, 
+    mother_func: FunctionValue, 
     reachable_functions: &HashMap<String, String>, 
-    mother_scopes: &Vec<u64>) -> Result<IntValue, &'static str> {
+    mother_scopes: &[u64]) -> Result<IntValue, &'static str> {
 
     let context = &self.context;
     let module  = &self.module;
@@ -1054,7 +1050,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
         let new_scope_stack = {
        
-          let mut res = mother_scopes.clone();
+          let mut res = mother_scopes.to_owned();
 
           res.push(this_scope);
 
@@ -1156,7 +1152,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
             }
           }
 
-          if let None = pointer_to_parameter {
+          if pointer_to_parameter.is_none() {
 
             let i32_type = context.i32_type();
 
@@ -1178,9 +1174,9 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
         let mut function_to_call : Option<FunctionValue> = None;
 
-        let mut available_scopes = mother_scopes.clone();
+        let mut available_scopes = mother_scopes.to_owned();
 
-        while available_scopes.len() > 0 {
+        while !available_scopes.is_empty() {
 
           let maybe_this_scope = available_scopes.pop().unwrap();
 
@@ -1201,7 +1197,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
   }
 
   // TODO: add the scope symbols this function has access to!
-  fn compile_fn(&self, name: &str, args: &Vec<char>, body: &Statement, reachable_functions: &HashMap<String, String>, mother_scopes: &Vec<u64>) -> Result<FunctionValue, &'static str> {
+  fn compile_fn(&self, name: &str, args: &[char], body: &Statement, reachable_functions: &HashMap<String, String>, mother_scopes: &[u64]) -> Result<FunctionValue, &'static str> {
 
     let context = &self.context;
     let module  = &self.module;
@@ -1279,7 +1275,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
       // We get the name of the idx_th argument to the function
       let var_name = args[idx];
       // We look up the pointer to our local variable for that function
-      let ptr_to_local_var = this_fn_vars.get(&var_name).unwrap();
+      let ptr_to_local_var = this_fn_vars[&var_name];
 
       let parameter_pointer = parameter_pointer.as_pointer_value();
 
@@ -1287,7 +1283,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
       let loaded_parameter_value = builder.build_load(*parameter_pointer, &format!("deref_{}", var_name));
 
       // We finally store that IntValue into our local variable :)
-      builder.build_store(*ptr_to_local_var, loaded_parameter_value);
+      builder.build_store(ptr_to_local_var, loaded_parameter_value);
       builder.position_at_end(&entry);
     } 
 
@@ -1295,7 +1291,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
       Stage 3: compile the function's body
     */
 
-    self.compile_stmt(&this_fn_vars, body, &function, reachable_functions, mother_scopes)?;
+    self.compile_stmt(&this_fn_vars, body, function, reachable_functions, mother_scopes)?;
 
     /*
       Stage 4: store the values in local variables back into the pointers given to us by the function caller
@@ -1309,12 +1305,12 @@ impl<'a, 'i> Compiler<'a, 'i> {
       // We get the name of the idx_th argument to the function
       let var_name = args[idx];
       // We look up the pointer to our local variable for that function
-      let ptr_to_local_var = this_fn_vars.get(&var_name).unwrap();
+      let ptr_to_local_var = this_fn_vars[&var_name];
 
       let parameter_pointer = parameter_pointer.as_pointer_value();
 
       // We load our local variable into a local IntValue
-      let loaded_parameter_value = builder.build_load(*ptr_to_local_var, &format!("deref_back_to_arg_{}", var_name));
+      let loaded_parameter_value = builder.build_load(ptr_to_local_var, &format!("deref_back_to_arg_{}", var_name));
 
       // We finally store that IntValue into its corresponding outbound pointer :)
       builder.build_store(*parameter_pointer, loaded_parameter_value);
@@ -1344,7 +1340,7 @@ impl<'a, 'i> Compiler<'a, 'i> {
     }
   }
   
-  fn compile_fn_prototype(&self, name: &str, args: &Vec<char>) -> Result<FunctionValue, &'static str> {
+  fn compile_fn_prototype(&self, name: &str, args: &[char]) -> Result<FunctionValue, &'static str> {
     // Our functions have no return value.
     let ret_type = self.context.void_type();
 
@@ -1386,11 +1382,11 @@ impl<'a, 'i> Compiler<'a, 'i> {
 
   pub fn compile(context: &'a Context, builder: &'a Builder, pass_manager: &'a PassManager, module: &'a Module, statement: &Statement) -> Result<FunctionValue, &'static str> {
     let compiler = Compiler {
-        context: context,
-        builder: builder,
+        context,
+        builder,
         fpm: pass_manager,
-        module: module,
-        statement: statement,
+        module,
+        statement,
         fn_value_opt: None,
         variables: HashMap::new()
     };
