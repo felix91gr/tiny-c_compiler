@@ -5,9 +5,7 @@
 pub static mut VERBOSITY: u64 = 0;
 
 pub fn verbosity() -> u64 {
-	unsafe {
-		VERBOSITY
-	}
+    unsafe { VERBOSITY }
 }
 
 #[macro_export]
